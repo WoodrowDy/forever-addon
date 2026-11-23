@@ -5,6 +5,8 @@ local gold={1,.78,.39}
 local muted={.65,.71,.77}
 local teal={.35,.87,.74}
 local orange={1,.63,.39}
+local shaman, druid, showClass, selectedClass
+local classTabs = {}
 local gearLeft, gearRight, statRows, tabs = {},{},{},{}
 local function fill(frame,r,g,b,a)
     local tx=frame:CreateTexture(nil,"BACKGROUND")
@@ -36,7 +38,8 @@ local function tooltip(self,id)
     if not id or id==0 then return end
     GameTooltip:SetOwner(self,"ANCHOR_RIGHT")
     GameTooltip:SetHyperlink("item:"..id)
-    GameTooltip:AddLine(ns.data.items[id][2],.95,.75,.45,true)
+    local item = ns.data.items[id]
+    if item then GameTooltip:AddLine(item[2],.95,.75,.45,true) end
     GameTooltip:Show()
 end
 local function hideTip() GameTooltip:Hide() end
@@ -48,7 +51,7 @@ local function panel(id,w,h)
     p:Hide();table.insert(UISpecialFrames,id);return p
 end
 local function itemRow(x,y,slot,mail)
-    local f=CreateFrame("Button",nil,ui);f:SetSize(241,29);f:SetPoint("TOPLEFT",ui,"TOPLEFT",x,-y)
+    local f=CreateFrame("Button",nil,shaman);f:SetSize(241,29);f:SetPoint("TOPLEFT",shaman,"TOPLEFT",x,-y)
     fill(f,slot%2==0 and .085 or .067,.093,.123,1)
     local hi=f:CreateTexture(nil,"HIGHLIGHT");hi:SetAllPoints();hi:SetColorTexture(.4,.7,.8,.16)
     f.tex=f:CreateTexture(nil,"ARTWORK");f.tex:SetPoint("LEFT",3,0);f.tex:SetSize(24,24);f.tex:SetTexCoord(.07,.93,.07,.93)
@@ -150,31 +153,35 @@ end
 local function scale()
     if ui then ui:SetScale(math.min(1,UIParent:GetWidth()*.98/940,UIParent:GetHeight()*.96/680)) end
 end
-local druid, openDruid
+local buildDruid
 local function initialize()
     ui=panel("ShamanFitWindow",940,680);ui:SetMovable(true);ui:RegisterForDrag("LeftButton")
     ui:SetScript("OnDragStart",ui.StartMoving);ui:SetScript("OnDragStop",ui.StopMovingOrSizing)
     ui:SetScript("OnHide",function() closeChoices();if info then info:Hide() end end)
-    label(ui,16,14,320,"ShamanFit  |  주술사 프리레이드","GameFontNormalLarge",gold)
-    button(ui,770,9,112,27,"드루이드 보기",function() ui:Hide();openDruid() end)
+    shaman=CreateFrame("Frame",nil,ui)
+    shaman:SetAllPoints(ui)
+    label(ui,16,14,180,"ShamanFit","GameFontNormalLarge",gold)
+    for i,name in ipairs({"주술사","드루이드"}) do
+        classTabs[i]=button(ui,185+(i-1)*105,9,100,27,name,function() showClass(i) end)
+    end
     button(ui,892,9,34,27,"×",function() ui:Hide() end)
     for i,spec in ipairs({"enhancement","elemental","restoration"}) do
-        tabs[spec]=button(ui,16+(i-1)*62,46,58,26,ns.specNames[spec],function()
+        tabs[spec]=button(shaman,16+(i-1)*62,46,58,26,ns.specNames[spec],function()
             state.spec=spec;state.pin=nil;closeChoices();refresh()
         end)
     end
-    ui.rep=button(ui,216,46,93,26,"평판 포함",function()
+    ui.rep=button(shaman,216,46,93,26,"평판 포함",function()
         state.noRep=not state.noRep;closeChoices()
         local _,mixed=ns.compare(state);if not mixed then state.pin=nil end
         refresh()
     end)
-    ui.tier=button(ui,317,46,95,26,"T0.5 포함",function()
+    ui.tier=button(shaman,317,46,95,26,"T0.5 포함",function()
         state.noTier=not state.noTier;closeChoices()
         local _,mixed=ns.compare(state);if not mixed then state.pin=nil end
         refresh()
     end)
-    ui.lock=label(ui,425,54,258,"",nil,teal)
-    button(ui,697,46,92,26,"계산 기준",function()
+    ui.lock=label(shaman,425,54,258,"",nil,teal)
+    button(shaman,697,46,92,26,"계산 기준",function()
         closeChoices()
         if not info then
             info=panel("ShamanFitProfile",530,280);info:SetParent(ui);info:ClearAllPoints();info:SetPoint("CENTER",ui);info:SetFrameLevel(ui:GetFrameLevel()+14)
@@ -188,30 +195,30 @@ local function initialize()
         info.body:SetText(detail.."\n\n특성  "..ns.data.builds[spec].."\n\n현재 클라이언트  "..gameVersion.." ("..gameBuild..")\n아이템·시뮬 데이터  "..ns.data.date.." · "..ns.data.revision:sub(1,12).."\n\n표의 1순위는 이 버전에 수록된 후보 조합 안에서 계산했습니다.")
         info:Show()
     end)
-    button(ui,798,46,128,26,"고정 해제",function() state.pin=nil;closeChoices();refresh() end)
-    label(ui,70,91,125,"사슬 전용","GameFontNormal",teal);label(ui,321,91,135,"혼합 허용","GameFontNormal",orange)
-    ui.mailScore=newText(ui,70,111,230,"GameFontNormalLarge",nil,teal)
-    ui.mixScore=newText(ui,321,111,230,"GameFontNormalLarge",nil,orange)
-    ui.delta=newText(ui,578,91,346,"GameFontNormalLarge",nil,gold)
+    button(shaman,798,46,128,26,"고정 해제",function() state.pin=nil;closeChoices();refresh() end)
+    label(shaman,70,91,125,"사슬 전용","GameFontNormal",teal);label(shaman,321,91,135,"혼합 허용","GameFontNormal",orange)
+    ui.mailScore=newText(shaman,70,111,230,"GameFontNormalLarge",nil,teal)
+    ui.mixScore=newText(shaman,321,111,230,"GameFontNormalLarge",nil,orange)
+    ui.delta=newText(shaman,578,91,346,"GameFontNormalLarge",nil,gold)
     for i=1,17 do
         local y=145+(i-1)*29
-        label(ui,13,y+8,54,ns.slotNames[i],nil,muted)
+        label(shaman,13,y+8,54,ns.slotNames[i],nil,muted)
         gearLeft[i]=itemRow(68,y,i,true);gearRight[i]=itemRow(317,y,i,false)
     end
     local xs={578,683,766,847};local widths={104,76,76,76}
     for k,v in ipairs({"참조 캐릭터","사슬","혼합","차이"}) do
-        local t=newText(ui,xs[k],145,widths[k],"GameFontNormalSmall",k==1 and "LEFT" or "RIGHT",gold);t:SetText(v)
+        local t=newText(shaman,xs[k],145,widths[k],"GameFontNormalSmall",k==1 and "LEFT" or "RIGHT",gold);t:SetText(v)
     end
     for j=1,12 do local row={}
-        for k=1,4 do row[k]=newText(ui,xs[k],172+(j-1)*21,widths[k],"GameFontHighlightSmall",k==1 and "LEFT" or "RIGHT",k==4 and teal or nil) end
+        for k=1,4 do row[k]=newText(shaman,xs[k],172+(j-1)*21,widths[k],"GameFontHighlightSmall",k==1 and "LEFT" or "RIGHT",k==4 and teal or nil) end
         statRows[j]=row
     end
-    label(ui,578,436,335,"계산 조건  ·  사슬 / 혼합","GameFontNormal",gold)
-    ui.details=newText(ui,578,462,346);ui.details:SetWordWrap(true);ui.details:SetSpacing(3)
-    label(ui,578,559,342,"활성 세트 효과","GameFontNormal",gold)
-    ui.bonuses=newText(ui,578,582,345,"GameFontDisableSmall",nil,muted);ui.bonuses:SetWordWrap(true);ui.bonuses:SetHeight(60);ui.bonuses:SetJustifyV("TOP")
-    ui.meta=newText(ui,15,651,570,"GameFontDisableSmall",nil,muted)
-    label(ui,578,651,346,"장비 클릭으로 고정 · 우클릭으로 해제",nil,muted)
+    label(shaman,578,436,335,"계산 조건  ·  사슬 / 혼합","GameFontNormal",gold)
+    ui.details=newText(shaman,578,462,346);ui.details:SetWordWrap(true);ui.details:SetSpacing(3)
+    label(shaman,578,559,342,"활성 세트 효과","GameFontNormal",gold)
+    ui.bonuses=newText(shaman,578,582,345,"GameFontDisableSmall",nil,muted);ui.bonuses:SetWordWrap(true);ui.bonuses:SetHeight(60);ui.bonuses:SetJustifyV("TOP")
+    ui.meta=newText(shaman,15,651,570,"GameFontDisableSmall",nil,muted)
+    label(shaman,578,651,346,"장비 클릭으로 고정 · 우클릭으로 해제",nil,muted)
     scale()
 end
 local events=CreateFrame("Frame")
@@ -220,45 +227,74 @@ events:SetScript("OnEvent",function(_,event)
     if event=="PLAYER_LOGIN" then
         state=ns.newState(ShamanFitCharacter);ShamanFitCharacter=state
     elseif event=="DISPLAY_SIZE_CHANGED" then scale()
-    elseif ui and ui:IsShown() and not ui.pending then
+    elseif selectedClass==1 and ui and ui:IsShown() and not ui.pending then
         ui.pending=true;C_Timer.After(.15,function() ui.pending=nil;if ui:IsShown() then refresh() end end)
     end
 end)
-openDruid=function()
-    if not druid then
-        druid=panel("ShamanFitDruid",560,540)
-        label(druid,16,14,260,"드루이드 장비 추천","GameFontNormalLarge",gold)
-        button(druid,367,10,120,25,"주술사 보기",function()
-            druid:Hide()
-            if not ui then initialize() end
-            ui:Show();refresh()
-        end)
-        button(druid,510,10,34,25,"×",function() druid:Hide() end)
-        local names,buttons={},{}
-        for slot=1,17 do
-            label(druid,20,90+(slot-1)*23,100,slot==17 and "우상" or ns.slotNames[slot],nil,muted)
-            names[slot]=newText(druid,130,90+(slot-1)*23,400)
-        end
-        local function selectRole(role)
-            for i,b in ipairs(buttons) do active(b,i==role) end
-            for slot,t in ipairs(names) do t:SetText(ns.druidGear[role][slot]) end
-        end
-        for i,name in ipairs({"조화","야성 · 표범","야성 · 곰","회복"}) do
-            buttons[i]=button(druid,16+(i-1)*130,48,122,25,name,function() selectRole(i) end)
-        end
-        label(druid,16,500,530,"WoWF 기본 추천 · 2026-11-23 · 진영 전용 보상 포함",nil,muted)
-        selectRole(1)
+buildDruid=function()
+    druid=CreateFrame("Frame",nil,ui)
+    druid:SetAllPoints(ui)
+    local rows,buttons={},{}
+    for slot=1,17 do
+        local y=85+(slot-1)*31
+        local row=CreateFrame("Button",nil,druid)
+        row:SetPoint("TOPLEFT",druid,"TOPLEFT",16,-y)
+        row:SetSize(600,29)
+        fill(row,.07,.093,.123,1)
+        label(row,6,8,86,slot==17 and "우상" or ns.slotNames[slot],nil,muted)
+        row.icon=row:CreateTexture(nil,"ARTWORK")
+        row.icon:SetPoint("LEFT",94,0)
+        row.icon:SetSize(25,25)
+        row.name=newText(row,128,8,460)
+        row:SetScript("OnEnter",function(self) tooltip(self,self.item) end)
+        row:SetScript("OnLeave",hideTip)
+        rows[slot]=row
     end
-    druid:Show()
+    local function selectRole(role)
+        hideTip()
+        for i,b in ipairs(buttons) do active(b,i==role) end
+        for slot,row in ipairs(rows) do
+            local id=ns.druidItemIDs[role][slot]
+            row.item=id
+            row.name:SetText(ns.druidGear[role][slot])
+            if id>0 then
+                row.icon:SetTexture(C_Item.GetItemIconByID(id) or 134400)
+                row.icon:Show()
+            else
+                row.icon:Hide()
+            end
+        end
+    end
+    for i,name in ipairs({"조화","야성 · 표범","야성 · 곰","회복"}) do
+        buttons[i]=button(druid,16+(i-1)*130,46,122,26,name,function() selectRole(i) end)
+    end
+    label(druid,16,651,600,"WoWF 기본 추천 · 2026-11-23 · 진영 전용 보상 포함",nil,muted)
+    selectRole(1)
+end
+
+showClass=function(index)
+    selectedClass=index
+    closeChoices()
+    hideTip()
+    if info then info:Hide() end
+    for i,b in ipairs(classTabs) do active(b,i==index) end
+    if index==2 then
+        shaman:Hide()
+        if not druid then buildDruid() end
+        druid:Show()
+    else
+        if druid then druid:Hide() end
+        shaman:Show()
+        refresh()
+    end
 end
 SLASH_SHAMANFIT3="/bis"
 SLASH_SHAMANFIT1="/shamanfit"
 SLASH_SHAMANFIT2="/sfit"
 SlashCmdList.SHAMANFIT=function()
     if not state then state=ns.newState(ShamanFitCharacter);ShamanFitCharacter=state end
-    if druid and druid:IsShown() then druid:Hide();return end
     if ui and ui:IsShown() then ui:Hide();return end
-    if UnitClass and select(2,UnitClass("player"))=="DRUID" then openDruid();return end
     if not ui then initialize() end
-    if ui:IsShown() then ui:Hide() else ui:Show();refresh() end
+    ui:Show()
+    showClass(selectedClass or (UnitClass and select(2,UnitClass("player"))=="DRUID" and 2 or 1))
 end

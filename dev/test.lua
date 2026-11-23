@@ -71,6 +71,8 @@ CreateFrame=new;UISpecialFrames={};SlashCmdList={};UIParent=new("Frame");GameToo
 C_Timer={After=function(_,f) f() end}
 GetBuildInfo=function() return "1.60.1","test" end
 if not unpack then unpack=table.unpack end
+loadAddon("Druid")
+C_Item={GetItemIconByID=function(id) return id end}
 loadAddon("Window")
 events.PLAYER_LOGIN.hooks.OnEvent(nil,"PLAYER_LOGIN")
 SlashCmdList.SHAMANFIT();assert(ShamanFitWindow:IsShown())
@@ -94,5 +96,15 @@ local row
 for _,b in ipairs(nodes) do if rawget(b,"id") and b.id>0 then row=b;break end end
 assert(row);row.hooks.OnClick(row);assert(ShamanFitCharacter.pin==row.id)
 hit.hooks.OnClick(hit,"RightButton");assert(not ShamanFitCharacter.pin)
+SlashCmdList.SHAMANFIT();assert(not ShamanFitWindow:IsShown())
+SlashCmdList.SHAMANFIT()
+clickButton("드루이드")
+local druidRow
+for _,node in ipairs(nodes) do if node.item==226773 then druidRow=node;break end end
+assert(druidRow and druidRow.hooks.OnEnter)
+function GameTooltip:SetHyperlink(link) self.link=link end
+druidRow.hooks.OnEnter(druidRow);assert(GameTooltip.link=="item:226773")
+clickButton("야성 · 곰");assert(druidRow.item==270117)
+clickButton("주술사");clickButton("드루이드");assert(druidRow.item==270117)
 SlashCmdList.SHAMANFIT();assert(not ShamanFitWindow:IsShown())
 print("OK: three specs, "..totals.." complete sets, armor, reputation, pins, deltas, window and controls")
