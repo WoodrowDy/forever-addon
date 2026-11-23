@@ -150,11 +150,13 @@ end
 local function scale()
     if ui then ui:SetScale(math.min(1,UIParent:GetWidth()*.98/940,UIParent:GetHeight()*.96/680)) end
 end
+local druid, openDruid
 local function initialize()
     ui=panel("ShamanFitWindow",940,680);ui:SetMovable(true);ui:RegisterForDrag("LeftButton")
     ui:SetScript("OnDragStart",ui.StartMoving);ui:SetScript("OnDragStop",ui.StopMovingOrSizing)
     ui:SetScript("OnHide",function() closeChoices();if info then info:Hide() end end)
     label(ui,16,14,320,"ShamanFit  |  주술사 프리레이드","GameFontNormalLarge",gold)
+    button(ui,770,9,112,27,"드루이드 보기",function() ui:Hide();openDruid() end)
     button(ui,892,9,34,27,"×",function() ui:Hide() end)
     for i,spec in ipairs({"enhancement","elemental","restoration"}) do
         tabs[spec]=button(ui,16+(i-1)*62,46,58,26,ns.specNames[spec],function()
@@ -222,10 +224,41 @@ events:SetScript("OnEvent",function(_,event)
         ui.pending=true;C_Timer.After(.15,function() ui.pending=nil;if ui:IsShown() then refresh() end end)
     end
 end)
+openDruid=function()
+    if not druid then
+        druid=panel("ShamanFitDruid",560,540)
+        label(druid,16,14,260,"드루이드 장비 추천","GameFontNormalLarge",gold)
+        button(druid,367,10,120,25,"주술사 보기",function()
+            druid:Hide()
+            if not ui then initialize() end
+            ui:Show();refresh()
+        end)
+        button(druid,510,10,34,25,"×",function() druid:Hide() end)
+        local names,buttons={},{}
+        for slot=1,17 do
+            label(druid,20,90+(slot-1)*23,100,slot==17 and "우상" or ns.slotNames[slot],nil,muted)
+            names[slot]=newText(druid,130,90+(slot-1)*23,400)
+        end
+        local function selectRole(role)
+            for i,b in ipairs(buttons) do active(b,i==role) end
+            for slot,t in ipairs(names) do t:SetText(ns.druidGear[role][slot]) end
+        end
+        for i,name in ipairs({"조화","야성 · 표범","야성 · 곰","회복"}) do
+            buttons[i]=button(druid,16+(i-1)*130,48,122,25,name,function() selectRole(i) end)
+        end
+        label(druid,16,500,530,"WoWF 기본 추천 · 2026-11-23 · 진영 전용 보상 포함",nil,muted)
+        selectRole(1)
+    end
+    druid:Show()
+end
+SLASH_SHAMANFIT3="/bis"
 SLASH_SHAMANFIT1="/shamanfit"
 SLASH_SHAMANFIT2="/sfit"
 SlashCmdList.SHAMANFIT=function()
     if not state then state=ns.newState(ShamanFitCharacter);ShamanFitCharacter=state end
+    if druid and druid:IsShown() then druid:Hide();return end
+    if ui and ui:IsShown() then ui:Hide();return end
+    if UnitClass and select(2,UnitClass("player"))=="DRUID" then openDruid();return end
     if not ui then initialize() end
     if ui:IsShown() then ui:Hide() else ui:Show();refresh() end
 end
