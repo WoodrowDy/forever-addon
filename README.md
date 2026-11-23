@@ -1,0 +1,68 @@
+# ShamanFit
+
+WoW 포에버 60레벨 고양·정기·복원 주술사의 사슬 전용 세트와 혼합 세트를 게임 안에서 비교하는 한국어 애드온입니다. 추천은 함께 배포된 데이터에서 선택 조건을 만족하는 완성 세트의 1순위입니다.
+
+## 설치와 첫 비교
+
+1. 설치 ZIP을 풀어 `World of Warcraft/_forever_/Interface/AddOns/ShamanFit/ShamanFit.toc`가 되게 합니다.
+2. 게임을 다시 실행하고 채팅에 `/shamanfit` 또는 `/sfit`를 입력합니다.
+3. **고양**, **정기**, **복원** 중 하나를 선택합니다. 사슬 전용은 머리·어깨·가슴·손목·손·허리·다리·발의 여덟 부위에 적용됩니다. 혼합은 주술사가 착용할 수 있는 사슬·가죽·천을 포함합니다.
+4. **평판 포함**을 누르면 개인 평판이 필요한 보상과 해당 연퀘 후반 보상을 제외합니다. 제작자가 평판을 갖추면 거래할 수 있는 제작품과 픽스 시직스 화폐 구매품은 남습니다. **T0.5 포함**을 누르면 업그레이드 연퀘 장비 전체를 제외합니다.
+5. 예를 들어 고양 탭에서 어깨 줄을 눌러 **잔인한 검투사의 어깨**를 고정합니다. 같은 어깨를 쓰는 세트들에서 사슬·혼합 각각의 1순위와 차이를 확인할 수 있습니다. 한 번에 장비 하나를 고정하며, 우클릭하면 해제됩니다. 가죽을 고정한 경우에는 혼합 열에서 해당 조합을 볼 수 있습니다. 아이템의 실제 툴팁은 마우스를 올리면 볼 수 있습니다.
+
+## 수치 읽기
+
+| 항목 | 계산 방법 |
+| --- | --- |
+| 고양·정기 | WoWSims Forever의 해당 특성 기본 특성·버프·소모품·딜 사이클을 사용합니다. 타우렌 60레벨, 우두머리 63레벨 하나, 고정 180초, 무마부, 무기 스왑 해제, 세트당 1,600회로 통일했습니다. 수치 옆 계산 조건에 표준오차도 표시합니다. |
+| 복원 | 하급 치유의 물결 6단계를 단일 대상에게 연속 시전한다고 가정합니다. 평균 기본 치유 820, 치유력 계수 0.429, 기본 시전 1.5초, 마나 380을 사용합니다. 정화 5점과 해일의 집중 5점을 적용하며 평균 1회 치유량에 주문 극대화, 시전 HPS에 주문 가속이 반영됩니다. 1회 마나는 361입니다. 초과 치유, 마나 고갈, 물의 보호막, 일시 발동, 연쇄 치유는 이 수치에서 제외됩니다. |
+| 능력치 | WoWSims가 계산한 각 참조 캐릭터의 상시 능력치입니다. 적중·숙련·치명타·가속의 차이는 퍼센트포인트로 읽습니다. 전투 도중 일시 발동 효과는 능력치 표와 별도로 해당 엔진이 지원하는 범위에서 DPS에 반영됩니다. |
+| 차이 | 사슬 수치에서 혼합 수치를 뺀 값입니다. 상대 차이의 분모는 혼합 수치입니다. 같은 세트가 양쪽에서 1위를 차지할 수도 있습니다. |
+
+각 특성 탭의 **계산 기준**에서 참조 특성 문자열, 설치한 게임의 빌드, 데이터 날짜, WoWSims 리비전을 확인할 수 있습니다. 소수점 수준의 DPS 순위는 반복 실행의 오차와 엔진의 발동 효과 구현에 영향을 받습니다.
+
+## 아이템과 파밍 범위
+
+초기 목록은 WoWSims Forever의 페이즈 1 아이템과 획득 경로에서 선별한, 아이템 레벨 48 이상의 고정 능력치 희귀·영웅 장비입니다. 검은바위 나락·첨탑, 스칼로맨스, 스트라솔름, 혈투의 전장, 마라우돈의 지정 보스와 검은아귀 요새 등 확인한 개별 경로를 담았습니다. 일부 제작품, 양 진영 공통 보상, 평판, 던전 화폐 상점, 주술사 T0.5 연퀘도 포함합니다. 랜덤 수식어 아이템, 확인 전인 획득처, 공격대 재료가 필요한 제작품은 범위 밖입니다. 구간별 연퀘 보상은 해당 특성용 버전을 선택합니다.
+
+장신구와 반지 쌍, 양손 또는 한손+보조장비를 하나의 선택 단위로 만듭니다. 고유 착용, 동일 제한 분류, 서로 배타적인 퀘스트 장신구를 검사합니다. 각 특성의 스탯 가중치로 후보를 좁힌 뒤 적중·숙련 상한을 고려해 세트를 구성합니다. 후보를 교체하고 주요 세트를 따로 시험한 뒤, 실측 상위 조합의 부위를 다시 결합해 평가합니다. **표시 순위는 이 탐색으로 평가한 조합 내 순위**입니다. 조건이나 고정 장비를 바꾸면 게임 안에서는 이미 평가한 전체 세트에서 다시 선택합니다.
+
+## 업데이트와 배포
+
+개발 ZIP을 풀면 `ShamanFit/` 폴더 안에 이 README, `.github/`, `dev/`가 있습니다. 이 폴더가 저장소 루트입니다. 새 비공개 저장소를 만들려면 GitHub CLI에 로그인한 후 이 폴더에서 실행합니다.
+
+```sh
+git init -b main
+git add .
+git commit -m "Import ShamanFit alpha"
+gh repo create ShamanFit --private --source=. --remote=origin --push
+```
+
+- **코드 변경 검증** · PR과 `main` 푸시에서 Lua 테스트를 실행하고 커밋에 포함된 데이터로 설치 ZIP을 만듭니다.
+- **데이터 갱신** · Actions가 활성화된 저장소의 기본 브랜치에서 매주 월요일 06:17(한국 시간)에 WoWSims 데이터를 다시 받아 계산합니다. 수동 실행 시 커밋을 지정할 수 있습니다. 새 던전이나 페이즈는 획득처와 제작 재료를 확인한 뒤 `dev/catalog.ts`에 추가합니다.
+- **갱신 결과 보관** · 주간 실행 기록의 `ShamanFit-tested-build` 아티팩트에서 `ShamanFit.zip`을 꺼냅니다. 그 안의 `ShamanFit/Data.lua`를 저장소 루트의 `Data.lua`에 반영하고 PR로 커밋하면 다음 설치 ZIP에도 같은 데이터가 포함됩니다.
+- **공개 배포** · 게임에서 쓸 때와 CurseForge에서 배포할 때 모두 설치 ZIP을 씁니다. 개발 중에는 ZIP을 직접 풀어 포에버 클라이언트에서 확인할 수 있습니다. 게시할 때는 CurseForge에서 World of Warcraft 프로젝트를 만들고 영문 설명·로고·라이선스를 입력한 뒤, 지원 게임 버전을 Forever로 선택해 설치 ZIP과 변경 내역을 제출합니다. 프로젝트의 기본 앱 노출에는 승인된 Release 파일이 한 개 이상 필요합니다.
+
+[GitHub CLI 저장소 만들기](https://cli.github.com/manual/gh_repo_create) · [WoWSims Forever](https://github.com/wowsims/forever) · [CurseForge 제출 안내](https://support.curseforge.com/support/solutions/articles/9000197241-creating-and-submitting-a-project)
+
+### 로컬에서 재현
+
+이번 데이터의 WoWSims 리비전은 `a73af7145111ce19c621e3b5f678553adf326907`입니다. Node 24, Go와 protoc, protoc-gen-go, Lua 5.1, Python 3가 필요합니다. Go 버전은 해당 WoWSims 리비전의 go.mod를 따릅니다. 아래 명령은 ShamanFit 저장소 루트에서 실행합니다.
+
+```sh
+git clone https://github.com/wowsims/forever.git ../wowsims-forever
+git -C ../wowsims-forever checkout a73af7145111ce19c621e3b5f678553adf326907
+addon_dir="$(pwd)"
+(
+  cd ../wowsims-forever
+  go install google.golang.org/protobuf/cmd/protoc-gen-go@"$(go list -m -f '{{.Version}}' google.golang.org/protobuf)"
+  export PATH="$(go env GOPATH)/bin:$PATH"
+  make sim/core/proto/api.pb.go
+  go build -tags=with_db -o "$addon_dir/measure" "$addon_dir/dev/measure.go"
+)
+node dev/refresh.ts ../wowsims-forever ./measure
+lua5.1 dev/test.lua
+python3 dev/package.py dist/ShamanFit.zip
+```
+
+`Data.lua`는 모든 계산이 성공한 뒤 교체됩니다. 고술·정술의 측정 엔진, 복술 주문 수치와 선별한 획득처의 근거는 [SOURCES.md](SOURCES.md)에 있습니다. 설치 ZIP에는 게임에서 쓰는 파일과 출처 고지만 포함합니다.

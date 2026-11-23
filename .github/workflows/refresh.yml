@@ -1,0 +1,52 @@
+name: Refresh ShamanFit gear and measurements
+on:
+  schedule:
+    - cron: "17 21 * * 0"
+  workflow_dispatch:
+    inputs:
+      upstream_ref:
+        description: 'WoWSims revision or branch'
+        default: master
+        required: true
+permissions:
+  contents: read
+jobs:
+  measure:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: wowsims/forever
+          ref: ${{ inputs.upstream_ref || 'master' }}
+          path: upstream
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: upstream/go.mod
+          cache-dependency-path: upstream/go.sum
+      - name: Install build tools
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y protobuf-compiler lua5.1
+          cd upstream
+          go install google.golang.org/protobuf/cmd/protoc-gen-go@$(go list -m -f '{{.Version}}' google.golang.org/protobuf)
+      - name: Build the simulator adapter
+        working-directory: upstream
+        run: |
+          make sim/core/proto/api.pb.go
+          go build -tags=with_db -o "$RUNNER_TEMP/measure" ../dev/measure.go
+      - name: Refresh and verify
+        run: |
+          node dev/refresh.ts upstream "$RUNNER_TEMP/measure"
+          lua5.1 dev/test.lua
+          python3 dev/package.py dist/ShamanFit.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ShamanFit-tested-build
+          path: dist/ShamanFit.zip
+          if-no-files-found: error
