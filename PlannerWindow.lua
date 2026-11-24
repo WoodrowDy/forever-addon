@@ -1,0 +1,202 @@
+local _,ns=...
+local frame,role,classIndex,settings,redraw
+local selectors,rows={},{}
+local db,defaultTarget,rankSource
+local function text(parent,x,y,s)
+    local f=parent:CreateFontString(nil,"OVERLAY","GameFontHighlightSmall")
+    f:SetPoint("TOPLEFT",parent,"TOPLEFT",x,-y);f:SetText(s or "")
+    return f
+end
+local function button(parent,x,y,w,s,click)
+    local b=CreateFrame("Button",nil,parent,"UIPanelButtonTemplate")
+    b:SetSize(w,24);b:SetPoint("TOPLEFT",parent,"TOPLEFT",x,-y)
+    b:SetText(s);b:SetScript("OnClick",click);return b
+end
+local function tip(b,message)
+    b:SetScript("OnEnter",function(self)
+        GameTooltip:SetOwner(self,"ANCHOR_RIGHT");GameTooltip:SetText(message(),1,1,1,1,true);GameTooltip:Show()
+    end)
+    b:SetScript("OnLeave",function() GameTooltip:Hide() end)
+end
+local function numberBox(x)
+    local box=CreateFrame("EditBox",nil,frame,"InputBoxTemplate")
+    box:SetSize(44,22);box:SetPoint("TOPLEFT",frame,"TOPLEFT",x,-78)
+    box:SetAutoFocus(false);box:SetMaxLetters(5);return box
+end
+local function profile()
+    db.profiles[role]=db.profiles[role] or {}
+    return db.profiles[role]
+end
+local function selectRole(key)
+    role=key
+    db.lastRole[classIndex]=key
+    settings=profile()
+    if classIndex==1 and settings.noRep==nil then
+        settings.noRep=db.noRep==true;settings.noTier=db.noTier==true
+    end
+    frame.target:SetText(tostring(settings.target or ns.roles[role][2] or 0))
+    local class=ns.classes[classIndex]
+    local rank=ns.currentTalentRank(class)
+    rankSource=rank~=nil and "내 특성" or "미리보기"
+    frame.bonus:SetText(tostring(settings.rank or rank or 0))
+    defaultTarget=ns.roles[role][2]
+    if not settings.target and rank and defaultTarget then
+        defaultTarget=defaultTarget-rank*class.talent.step
+        frame.target:SetText(tostring(defaultTarget))
+    end
+    redraw()
+end
+local function selectClass(index)
+    classIndex=index
+    local c=ns.classes[index]
+    for i,b in ipairs(selectors) do
+        local key=c.roles[i]
+        if key then b.key=key;b:SetText(ns.roles[key][1]);b:Show() else b:Hide() end
+    end
+    selectRole(db.lastRole[index] or c.roles[1])
+end
+local function submit(useBonus)
+    local limit=ns.roles[role][2]
+    if not limit then return end
+    local box=useBonus and frame.bonus or frame.target
+    local n=tonumber(box:GetText())
+    if not n or n<0 or n>(useBonus and ns.classes[classIndex].talent.max or 100) then
+        frame.notice:SetText("입력 범위 0–"..(useBonus and ns.classes[classIndex].talent.max or 100).."%");return
+    end
+    if useBonus and n~=math.floor(n) then frame.notice:SetText("특성 포인트는 정수로 입력하세요.");return end
+    if useBonus then settings.rank=n;rankSource="선택한 특성";n=limit-n*ns.classes[classIndex].talent.step;frame.target:SetText(tostring(n)) end
+    settings.target=n;box:ClearFocus();redraw()
+end
+local function build()
+    frame=CreateFrame("Frame","BiSFitPlanner",UIParent)
+    frame:SetSize(900,662);frame:SetPoint("CENTER");frame:SetFrameStrata("DIALOG")
+    frame:EnableMouse(true);frame:SetMovable(true);frame:RegisterForDrag("LeftButton")
+    frame:SetScript("OnDragStart",frame.StartMoving);frame:SetScript("OnDragStop",frame.StopMovingOrSizing)
+    local bg=frame:CreateTexture(nil,"BACKGROUND");bg:SetAllPoints();bg:SetColorTexture(.045,.055,.075,.98)
+    table.insert(UISpecialFrames,"BiSFitPlanner")
+    text(frame,16,16,"BiSFit")
+    for i,c in ipairs(ns.classes) do button(frame,148+(i-1)*104,8,100,c.name,function() selectClass(i) end) end
+    button(frame,750,8,94,"상세 자료",function() frame:Hide();ns.detailClass=classIndex;SlashCmdList.BISFIT();ns.detailClass=nil end)
+    button(frame,850,8,38,"×",function() frame:Hide() end)
+    for i=1,4 do selectors[i]=button(frame,16+(i-1)*109,42,105,"",function(self) selectRole(self.key) end) end
+    frame.mode=button(frame,475,42,128,"",function() settings.prefer=not settings.prefer;redraw() end)
+    tip(frame.mode,function() local c=ns.classes[classIndex]
+        return c.material.." 우선은 목표 적중을 채우는 데 필요한 최소 부위만 다른 재질로 허용합니다. 같은 부위 수에서는 전문화 점수가 가장 높은 조합을 선택합니다."
+    end)
+    frame.unpin=button(frame,615,42,80,"고정 해제",function() settings.pin=nil;redraw() end)
+    frame.goalLabel=text(frame,16,84)
+    frame.target=numberBox(156);frame.apply=button(frame,205,77,62,"조회",function() submit(false) end)
+    frame.bonusLabel=text(frame,282,84,"적중 특성 (포인트)")
+    frame.bonus=numberBox(408);frame.useBonus=button(frame,458,77,125,"레이드 목표 적용",function() submit(true) end)
+    frame.mine=button(frame,593,77,92,"내 특성",function()
+        local rank=ns.currentTalentRank(ns.classes[classIndex])
+        if rank==nil then frame.notice:SetText("현재 캐릭터 특성 확인 불가 · 포인트를 직접 입력하세요.");return end
+        frame.bonus:SetText(tostring(rank));submit(true)
+    end)
+    frame.rep=button(frame,700,42,90,"",function() settings.noRep=not settings.noRep;redraw() end)
+    frame.tier=button(frame,795,42,90,"",function() settings.noTier=not settings.noTier;redraw() end)
+    frame.target:SetScript("OnEnterPressed",function() submit(false) end)
+    frame.bonus:SetScript("OnEnterPressed",function() submit(true) end)
+    frame.notice=text(frame,16,114)
+    frame.head={text(frame,86,142),text(frame,491,142)}
+    frame.status={text(frame,86,160),text(frame,491,160)}
+    for slot=1,17 do
+        rows[slot]={};local y=185+(slot-1)*25
+        text(frame,14,y+5,slot==17 and "성물" or ns.slotNames[slot])
+        for side=1,2 do
+            local b=button(frame,82+(side-1)*404,y,397,"",function(self,key)
+                if key=="RightButton" then settings.pin=nil elseif self.item and self.item>0 then settings.pin=self.item end
+                redraw()
+            end)
+            b:RegisterForClicks("LeftButtonUp","RightButtonUp")
+            b.icon=b:CreateTexture(nil,"ARTWORK");b.icon:SetSize(19,19);b.icon:SetPoint("LEFT",4,0)
+            b:SetScript("OnEnter",function(self)
+                if not self.item or self.item==0 then return end
+                GameTooltip:SetOwner(self,"ANCHOR_RIGHT");GameTooltip:SetHyperlink("item:"..self.item)
+                GameTooltip:AddLine(ns.data.items[self.item][2],1,.8,.5,true)
+                GameTooltip:AddLine(string.format("아이템 기본 EP %.2f",ns.itemEP[role][self.item]),.6,1,.8)
+                if self.delta~=nil then
+                    GameTooltip:AddLine(string.format("반대 열의 이 부위만 교체  %+.2f %s",self.delta,self.unit),1,.84,.5)
+                elseif self.unmeasured then GameTooltip:AddLine("이 단일 교체 조합은 미측정",.8,.8,.8) end
+                GameTooltip:Show()
+            end)
+            b:SetScript("OnLeave",function() GameTooltip:Hide() end)
+            rows[slot][side]=b
+        end
+    end
+    frame.footer=text(frame,16,624)
+    frame.stats=text(frame,16,643)
+end
+redraw=function()
+    local c=ns.classes[classIndex]
+    local limit=ns.roles[role][2]
+    for _,widget in ipairs({frame.target,frame.apply,frame.goalLabel,frame.bonusLabel,frame.bonus,frame.useBonus,frame.mine}) do
+        if limit then widget:Show() else widget:Hide() end
+    end
+    frame.goalLabel:SetText("장비 "..(ns.roles[role][3] or "").." 적중 (%)")
+    local mode=c.material..(settings.prefer and " 우선" or "만")
+    frame.mode:SetText(mode)
+    if classIndex==1 then
+        frame.rep:SetText(settings.noRep and "평판 제외" or "평판 포함")
+        frame.tier:SetText(settings.noTier and "T0.5 제외" or "T0.5 포함")
+        frame.rep:Show();frame.tier:Show()
+    else frame.rep:Hide();frame.tier:Hide() end
+    frame.bonusLabel:SetText("적중 특성 ("..c.talent.max.."점 만점)")
+    for _,b in ipairs(selectors) do if b.key==role then b:Disable() else b:Enable() end end
+    local query=settings
+    if limit and settings.target==nil then
+        query=setmetatable({target=defaultTarget or limit},{__index=settings})
+    end
+    local left,right=ns.plan(c,role,query)
+    local unit=classIndex==2 and "EP" or (role=="restoration" and "HPS" or "DPS")
+    frame.notice:SetText(c.name.." · "..ns.roles[role][1]..(limit and (" · "..(settings.target and "저장한 장비 목표" or rankSource).." "..(settings.target or defaultTarget).."%") or "").."   "..(settings.pin and "고정 · "..ns.itemName(settings.pin) or "장비 클릭으로 고정 · 우클릭으로 해제"))
+    for side=1,2 do
+        local r=left
+        if side==2 then r=right end
+        frame.head[side]:SetText((side==1 and mode or "혼합 허용")..(r and string.format("   %.1f %s",r.score,unit) or ""))
+        frame.status[side]:SetText(limit and (ns.planStatus(r,side==1 and not settings.prefer)..(r and string.format(" · 장비 %.1f%%",r.hit) or "")) or (r and "치유 기준" or "조건에 맞는 후보 없음"))
+        for slot,line in ipairs(rows) do
+            local b=line[side];local id=r and r.row.gear[slot];b.item=id
+            local opposite=left
+            if side==1 then opposite=right end
+            b.delta=ns.swapDelta(role,opposite and opposite.row,slot,id)
+            b.unmeasured=classIndex==1 and opposite and id and b.delta==nil
+            b.unit=unit
+            if id and id>0 then
+                b:SetText((id==settings.pin and "◆ " or "")..ns.itemName(id))
+                b.icon:SetTexture(C_Item.GetItemIconByID(id) or 134400);b.icon:Show()
+            else b:SetText("—");b.icon:Hide() end
+        end
+    end
+    local delta=left and right and string.format(" · 혼합 대비 %+.2f %s",left.score-right.score,unit) or ""
+    local parts={}
+    if left and right then
+        for _,v in ipairs({{0,"힘"},{1,"민첩"},{2,"체력"},{3,"지능"},{4,"치유력"},{5,"주문 피해"},{17,"적중 평점"}}) do
+            local n=0
+            for slot,id in ipairs(left.row.gear) do
+                local a=ns.gearStats[id] or {}
+                local b=ns.gearStats[right.row.gear[slot]] or {}
+                n=n+(a[v[1]] or 0)-(b[v[1]] or 0)
+            end
+            if n~=0 then parts[#parts+1]=string.format("%s %+.0f",v[2],n) end
+        end
+    end
+    frame.stats:SetText(left and right and ("장비 기본 능력치 차이 · "..(#parts>0 and table.concat(parts,"  ") or "표시 항목 동일")) or "")
+    frame.footer:SetText("등록 후보 "..#ns.planRows(role).."조합"..delta)
+end
+SLASH_BISFITPLAN1="/bis"
+SlashCmdList.BISFITPLAN=function()
+    if frame and frame:IsShown() then frame:Hide();return end
+    BiSFitCharacter=BiSFitCharacter or {}
+    db=BiSFitCharacter
+    if not db.profiles then
+        db.profiles={}
+        if db.spec and db.pin then db.profiles[db.spec]={pin=db.pin} end
+    end
+    db.lastRole=db.lastRole or {}
+    if not frame then build() end
+    frame:SetScale(math.min(1,UIParent:GetWidth()*.98/900,UIParent:GetHeight()*.96/662))
+    if BiSFitWindow then BiSFitWindow:Hide() end
+    frame:Show()
+    selectClass(classIndex or (UnitClass and select(2,UnitClass("player"))=="DRUID" and 2 or 1))
+end

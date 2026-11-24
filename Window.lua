@@ -86,7 +86,7 @@ local function showPage()
 end
 openChoices=function(slot,mail)
     if not chooser then
-        chooser=panel("ShamanFitPicker",420,478);chooser:SetParent(ui);chooser:ClearAllPoints();chooser:SetPoint("CENTER",ui);chooser:SetFrameLevel(ui:GetFrameLevel()+12)
+        chooser=panel("BiSFitPicker",420,478);chooser:SetParent(ui);chooser:ClearAllPoints();chooser:SetPoint("CENTER",ui);chooser:SetFrameLevel(ui:GetFrameLevel()+12)
         chooser.title=label(chooser,16,15,342,"","GameFontNormalLarge",gold)
         button(chooser,375,9,32,24,"×",closeChoices)
         label(chooser,16,46,395,"아이템을 선택하면 그 아이템을 포함한 조합끼리 비교합니다.",nil,muted)
@@ -155,12 +155,12 @@ local function scale()
 end
 local buildDruid
 local function initialize()
-    ui=panel("ShamanFitWindow",940,680);ui:SetMovable(true);ui:RegisterForDrag("LeftButton")
+    ui=panel("BiSFitWindow",940,680);ui:SetMovable(true);ui:RegisterForDrag("LeftButton")
     ui:SetScript("OnDragStart",ui.StartMoving);ui:SetScript("OnDragStop",ui.StopMovingOrSizing)
     ui:SetScript("OnHide",function() closeChoices();if info then info:Hide() end end)
     shaman=CreateFrame("Frame",nil,ui)
     shaman:SetAllPoints(ui)
-    label(ui,16,14,180,"ShamanFit","GameFontNormalLarge",gold)
+    label(ui,16,14,180,"BiSFit","GameFontNormalLarge",gold)
     for i,name in ipairs({"주술사","드루이드"}) do
         classTabs[i]=button(ui,185+(i-1)*105,9,100,27,name,function() showClass(i) end)
     end
@@ -184,7 +184,7 @@ local function initialize()
     button(shaman,697,46,92,26,"계산 기준",function()
         closeChoices()
         if not info then
-            info=panel("ShamanFitProfile",530,280);info:SetParent(ui);info:ClearAllPoints();info:SetPoint("CENTER",ui);info:SetFrameLevel(ui:GetFrameLevel()+14)
+            info=panel("BiSFitProfile",530,280);info:SetParent(ui);info:ClearAllPoints();info:SetPoint("CENTER",ui);info:SetFrameLevel(ui:GetFrameLevel()+14)
             label(info,18,16,460,"추천과 계산 기준","GameFontNormalLarge",gold)
             button(info,483,10,32,24,"×",function() info:Hide() end)
             info.body=newText(info,18,55,492,"GameFontHighlight");info.body:SetWordWrap(true);info.body:SetSpacing(4)
@@ -225,7 +225,7 @@ local events=CreateFrame("Frame")
 events:RegisterEvent("PLAYER_LOGIN");events:RegisterEvent("DISPLAY_SIZE_CHANGED");events:RegisterEvent("GET_ITEM_INFO_RECEIVED")
 events:SetScript("OnEvent",function(_,event)
     if event=="PLAYER_LOGIN" then
-        state=ns.newState(ShamanFitCharacter);ShamanFitCharacter=state
+        state=ns.newState(BiSFitCharacter);BiSFitCharacter=state
     elseif event=="DISPLAY_SIZE_CHANGED" then scale()
     elseif selectedClass==1 and ui and ui:IsShown() and not ui.pending then
         ui.pending=true;C_Timer.After(.15,function() ui.pending=nil;if ui:IsShown() then refresh() end end)
@@ -288,13 +288,13 @@ showClass=function(index)
         refresh()
     end
 end
-SLASH_SHAMANFIT3="/bis"
-SLASH_SHAMANFIT1="/shamanfit"
-SLASH_SHAMANFIT2="/sfit"
-SlashCmdList.SHAMANFIT=function()
-    if not state then state=ns.newState(ShamanFitCharacter);ShamanFitCharacter=state end
+SLASH_BISFIT1="/bisfit"
+SLASH_BISFIT2="/sfit"
+SlashCmdList.BISFIT=function()
+    if not state then state=ns.newState(BiSFitCharacter);BiSFitCharacter=state end
+    if BiSFitPlanner then BiSFitPlanner:Hide() end
     if ui and ui:IsShown() then ui:Hide();return end
     if not ui then initialize() end
     ui:Show()
-    showClass(selectedClass or (UnitClass and select(2,UnitClass("player"))=="DRUID" and 2 or 1))
+    showClass(ns.detailClass or selectedClass or (UnitClass and select(2,UnitClass("player"))=="DRUID" and 2 or 1))
 end

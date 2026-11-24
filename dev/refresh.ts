@@ -86,7 +86,7 @@ const bundle: any = {
   items: {},
   sets: { enhancement: [], elemental: [], restoration: [] },
 };
-const scratch = fs.mkdtempSync(path.join(os.tmpdir(), "shamanfit-"));
+const scratch = fs.mkdtempSync(path.join(os.tmpdir(), "bisfit-"));
 const ident = (s: string) => /^[A-Za-z_][A-Za-z0-9_]*$/.test(s);
 function toLua(x: any): string {
   if (typeof x === "number") {

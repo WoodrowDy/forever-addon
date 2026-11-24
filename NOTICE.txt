@@ -1,5 +1,5 @@
-ShamanFit 0.1.0-alpha for World of Warcraft: Forever (1.60.1)
-Open in game with /shamanfit or /sfit.
+BiSFit for World of Warcraft: Forever (1.60.1)
+Open in game with /bisfit or /sfit.
 Gear data and combat estimates use WoWSims Forever: https://github.com/wowsims/forever
 This addon has no affiliation with WoWSims or Blizzard.
 The item catalog is a curated pre-raid subset. Recommendations rank tested sets in this snapshot.

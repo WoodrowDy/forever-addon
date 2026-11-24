@@ -1,6 +1,6 @@
 -- Run at the addon repository root: lua5.1 dev/test.lua
 local ns={}
-local function loadAddon(name) assert(loadfile(name..".lua"))("ShamanFit",ns) end
+local function loadAddon(name) assert(loadfile(name..".lua"))("BiSFit",ns) end
 loadAddon("Data");loadAddon("Compare")
 local d=ns.data
 assert(d.items[277117][2]:find("그리즐"));assert(d.items[11726][2]:find("고로쉬"))
@@ -71,33 +71,33 @@ CreateFrame=new;UISpecialFrames={};SlashCmdList={};UIParent=new("Frame");GameToo
 C_Timer={After=function(_,f) f() end}
 GetBuildInfo=function() return "1.60.1","test" end
 if not unpack then unpack=table.unpack end
-loadAddon("Druid")
+loadAddon("Classes/Shaman");loadAddon("Classes/Druid")
 C_Item={GetItemIconByID=function(id) return id end}
 loadAddon("Window")
 events.PLAYER_LOGIN.hooks.OnEvent(nil,"PLAYER_LOGIN")
-SlashCmdList.SHAMANFIT();assert(ShamanFitWindow:IsShown())
+SlashCmdList.BISFIT();assert(BiSFitWindow:IsShown())
 for _,wanted in ipairs({"정기","복원","고양"}) do
     for _,b in ipairs(nodes) do if b.kind=="Button" and type(rawget(b,"caption"))=="table" and b.caption.text==wanted then b.hooks.OnClick(b);break end end
 end
-assert(ShamanFitCharacter.spec=="enhancement")
+assert(BiSFitCharacter.spec=="enhancement")
 local function clickButton(text)
     for _,b in ipairs(nodes) do
         if b.kind=="Button" and rawget(b,"caption") and b.caption.text==text then b.hooks.OnClick(b);return end
     end
     error("missing button "..text)
 end
-clickButton("평판 포함");assert(ShamanFitCharacter.noRep)
-clickButton("T0.5 포함");assert(ShamanFitCharacter.noTier)
-clickButton("계산 기준");assert(ShamanFitProfile:IsShown());ShamanFitProfile:Hide()
+clickButton("평판 포함");assert(BiSFitCharacter.noRep)
+clickButton("T0.5 포함");assert(BiSFitCharacter.noTier)
+clickButton("계산 기준");assert(BiSFitProfile:IsShown());BiSFitProfile:Hide()
 local hit
 for _,b in ipairs(nodes) do if b.kind=="Button" and type(rawget(b,"item"))=="number" and b.item>0 then hit=b;break end end
-assert(hit);hit.hooks.OnClick(hit,"LeftButton");assert(ShamanFitPicker:IsShown())
+assert(hit);hit.hooks.OnClick(hit,"LeftButton");assert(BiSFitPicker:IsShown())
 local row
 for _,b in ipairs(nodes) do if rawget(b,"id") and b.id>0 then row=b;break end end
-assert(row);row.hooks.OnClick(row);assert(ShamanFitCharacter.pin==row.id)
-hit.hooks.OnClick(hit,"RightButton");assert(not ShamanFitCharacter.pin)
-SlashCmdList.SHAMANFIT();assert(not ShamanFitWindow:IsShown())
-SlashCmdList.SHAMANFIT()
+assert(row);row.hooks.OnClick(row);assert(BiSFitCharacter.pin==row.id)
+hit.hooks.OnClick(hit,"RightButton");assert(not BiSFitCharacter.pin)
+SlashCmdList.BISFIT();assert(not BiSFitWindow:IsShown())
+SlashCmdList.BISFIT()
 clickButton("드루이드")
 local druidRow
 for _,node in ipairs(nodes) do if node.item==226773 then druidRow=node;break end end
@@ -106,5 +106,57 @@ function GameTooltip:SetHyperlink(link) self.link=link end
 druidRow.hooks.OnEnter(druidRow);assert(GameTooltip.link=="item:226773")
 clickButton("야성 · 곰");assert(druidRow.item==270117)
 clickButton("주술사");clickButton("드루이드");assert(druidRow.item==270117)
-SlashCmdList.SHAMANFIT();assert(not ShamanFitWindow:IsShown())
+SlashCmdList.BISFIT();assert(not BiSFitWindow:IsShown())
 print("OK: three specs, "..totals.." complete sets, armor, reputation, pins, deltas, window and controls")
+loadAddon("PlannerData");loadAddon("Planner");loadAddon("PlannerWindow")
+function methods:GetText() return self.text end
+for _,class in ipairs(ns.classes) do
+    for _,role in ipairs(class.roles) do
+        local strict,mixed=ns.plan(class,role,{target=0})
+        assert(strict and strict.other==0 and mixed)
+        local left,right=ns.plan(class,role,{target=100,prefer=true})
+        assert(left and right);if ns.roles[role][2] then assert(left.hit==right.hit) end
+        if ns.roles[role][2] then assert(ns.planStatus(left,true):find("없어 돌아가")) end
+        local pinned=select(2,ns.plan(class,role,{target=3,pin=mixed.row.gear[1]}))
+        assert(pinned and pinned.row.gear[1]==mixed.row.gear[1])
+    end
+end
+local old=ns.druidSets.cat
+local leather,mixed=ns.plan(ns.classes[2],"cat",{target=100})
+local preferred=ns.plan(ns.classes[2],"cat",{target=mixed.hit,prefer=true})
+for _,row in ipairs(old) do
+    local rating,other=0,0
+    for _,id in ipairs(row.gear) do rating=rating+(ns.itemHit[id] or 0) end
+    for _,slot in ipairs(armor) do if ns.data.items[row.gear[slot]][3]~=2 then other=other+1 end end
+    if rating/10>=mixed.hit then assert(other>=preferred.other) end
+end
+assert(ns.planStatus(nil,true)=="조건에 맞는 후보 없음")
+SlashCmdList.BISFITPLAN();assert(BiSFitPlanner:IsShown())
+local function plannerClick(label)
+    for _,b in ipairs(nodes) do
+        if b.kind=="Button" and b.text==label then b.hooks.OnClick(b);return end
+    end
+    error("planner control missing: "..label)
+end
+plannerClick("드루이드");plannerClick("야성 · 곰");plannerClick("가죽만")
+assert(BiSFitCharacter.profiles.bear.prefer)
+plannerClick("주술사");plannerClick("드루이드")
+assert(BiSFitCharacter.lastRole[2]=="bear")
+SlashCmdList.BISFITPLAN();assert(not BiSFitPlanner:IsShown())
+print("OK: seven planner profiles, hit goals, armor priorities, pins and class UI")
+UnitClass=function() return "드루이드","DRUID" end
+GetNumTalents=function() return 1 end
+GetTalentInfo=function() return "Nature's Reach","icon",2,4,2,2 end
+assert(ns.currentTalentRank(ns.classes[2])==2 and ns.currentTalentRank(ns.classes[1])==nil)
+SlashCmdList.BISFITPLAN()
+plannerClick("조화");plannerClick("내 특성")
+assert(BiSFitCharacter.profiles.balance.target==13)
+local boxes={}
+for _,node in ipairs(nodes) do if node.kind=="EditBox" then boxes[#boxes+1]=node end end
+boxes[1]:SetText("12");plannerClick("조회")
+assert(BiSFitCharacter.profiles.balance.target==12)
+boxes[1]:SetText("-1");plannerClick("조회")
+assert(BiSFitCharacter.profiles.balance.target==12)
+plannerClick("주술사");plannerClick("드루이드")
+assert(boxes[1].text=="12")
+print("OK: detected talent points, manual override, invalid input and saved targets")

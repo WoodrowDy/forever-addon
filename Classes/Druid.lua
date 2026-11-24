@@ -12,3 +12,13 @@ ns.druidItemIDs = {
     {270117, 13091, 226798, 18495, 13378, 18726, 226802, 11866, 226799, 279905, 272409, 22331, 14557, 272440, 18531, 0, 23198},
     {252561, 18723, 14139, 18510, 22272, 22667, 18409, 14553, 18682, 275609, 16058, 22334, 272439, 11819, 13360, 22319, 272429},
 }
+
+ns.classes[2]={
+    name="드루이드",token="DRUID",armor=2,material="가죽",
+    roles={"balance","cat","bear","druidHeal"},
+    talent={tree=1,tier=2,column=4,spell=16819,name="Nature's Reach",max=2,step=2},
+}
+ns.roles.balance={"조화",17,"주문"}
+ns.roles.cat={"야성 · 표범",8,"근접"}
+ns.roles.bear={"야성 · 곰",8,"근접"}
+ns.roles.druidHeal={"회복"}

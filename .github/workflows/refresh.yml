@@ -1,4 +1,4 @@
-name: Refresh ShamanFit gear and measurements
+name: Refresh BiSFit gear and measurements
 on:
   schedule:
     - cron: "17 21 * * 0"
@@ -43,10 +43,11 @@ jobs:
       - name: Refresh and verify
         run: |
           node dev/refresh.ts upstream "$RUNNER_TEMP/measure"
+          python3 dev/planner_data.py upstream/assets/database/db.json
           lua5.1 dev/test.lua
-          python3 dev/package.py dist/ShamanFit.zip
+          python3 dev/package.py
       - uses: actions/upload-artifact@v4
         with:
-          name: ShamanFit-tested-build
-          path: dist/ShamanFit.zip
+          name: BiSFit-tested-build
+          path: dist/BiSFit-*.zip
           if-no-files-found: error

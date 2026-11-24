@@ -1,0 +1,14 @@
+## Interface: 16001
+## Title: BiSFit
+## Notes: Shaman and Druid pre-raid gear planner, hit targets and armor comparisons. /bis
+## Notes-koKR: 주술사·드루이드 적중 목표와 방어구별 장비 비교. /bis
+## Version: 0.3.0-alpha
+## SavedVariablesPerCharacter: BiSFitCharacter
+Data.lua
+Compare.lua
+Classes/Shaman.lua
+Classes/Druid.lua
+Window.lua
+PlannerData.lua
+Planner.lua
+PlannerWindow.lua

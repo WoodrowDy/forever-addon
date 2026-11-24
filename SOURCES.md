@@ -16,3 +16,8 @@
 - [하급 치유의 물결 6단계의 기본 수치와 치유 계수](https://wowforeverbuilder.com/classes/shaman/spells/lesser-healing-wave/), [정화 및 해일의 집중 효과](https://lorddemonos.github.io/wow-forever/healing/shaman/)
 
 게임 안 캐릭터 장비·인벤토리 또는 유저 로그를 외부로 전송하는 기능은 없습니다. 아이템 이름과 툴팁은 가능하면 실행 중인 게임 클라이언트에서 읽습니다.
+
+## 적중과 드루이드 EP
+
+- 레이드 비교 기준과 특성별 보정은 [Method](https://www.method.gg/wow-forever/how-does-hit-chance-work-in-wow-forever), [WoWF 주술사](https://wowf.io/en/talents/shaman), [WoWF 드루이드](https://wowf.io/en/talents/druid)를 참조합니다.
+- 조화는 [WoWSims PreBiSEpWeights](https://github.com/wowsims/forever/blob/a73af7145111ce19c621e3b5f678553adf326907/ui/specs/druid/balance/presets.ts), 표범·곰은 [CatEp / BearEp](https://github.com/wowsims/forever/blob/a73af7145111ce19c621e3b5f678553adf326907/ui/specs/druid/feral_ep.ts)의 장비 기본 능력치와 무기 DPS를 사용합니다. 회복 드루이드의 치유력 기준은 이 애드온의 단순 비교 기준입니다.

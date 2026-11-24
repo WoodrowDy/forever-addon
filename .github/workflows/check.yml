@@ -22,9 +22,9 @@ jobs:
       - name: Test the bundled data and interface
         run: lua5.1 dev/test.lua
       - name: Package the addon
-        run: python3 dev/package.py dist/ShamanFit.zip
+        run: python3 dev/package.py
       - uses: actions/upload-artifact@v4
         with:
-          name: ShamanFit-install
-          path: dist/ShamanFit.zip
+          name: BiSFit-install
+          path: dist/BiSFit-*.zip
           if-no-files-found: error
