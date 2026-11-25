@@ -72,7 +72,7 @@ local function numberBox(x)
     box:SetAutoFocus(false);box:SetMaxLetters(5);return box
 end
 local function profile()
-    db.profiles[role]=db.profiles[role] or {}
+    db.profiles[role]=db.profiles[role] or {prefer=true}
     return db.profiles[role]
 end
 local function selectRole(key)
@@ -133,7 +133,9 @@ local function build()
     for i=1,4 do selectors[i]=button(frame,16+(i-1)*109,42,105,"",function(self) selectRole(self.key) end) end
     frame.mode=button(frame,475,42,128,"",function() preview=nil;settings.prefer=not settings.prefer;redraw() end)
     tip(frame.mode,function() local c=ns.classes[classIndex]
-        return c.material.." 우선은 목표 적중을 채우는 데 필요한 최소 부위만 다른 재질로 허용합니다. 같은 부위 수에서는 전문화 점수가 가장 높은 조합을 선택합니다."
+        local ranking = role=="bear" and "TMI가 낮은 순, 동점이면 받는 DPS가 낮은 순" or
+            (role=="restoration" or role=="druidHeal") and "지속 HPS가 높은 순" or "평균 DPS가 높은 순"
+        return c.material.." 우선은 적중 부족분이 가장 작은 후보 중 다른 재질이 가장 적은 세트를 고릅니다. 같은 부위 수에서는 "..ranking.."입니다."
     end)
     frame.unpin=button(frame,615,42,80,"고정 해제",function() preview=nil;settings.pin=nil;settings.pinSlot=nil;redraw() end)
     frame.goalLabel=text(frame,16,84)
@@ -151,6 +153,10 @@ local function build()
     frame.bonus:SetScript("OnEnterPressed",function() submit(true) end)
     frame.notice=text(frame,16,114)
     frame.head={text(frame,86,142),text(frame,491,142)}
+    frame.restore=button(frame,0,0,142,"미리보기 · 추천으로 복귀",function()
+        preview=nil
+        redraw()
+    end)
     frame.status={text(frame,86,160),text(frame,491,160)}
     for slot=1,17 do
         rows[slot]={};local y=185+(slot-1)*25
@@ -205,6 +211,13 @@ redraw=function()
         query=setmetatable({target=defaultTarget or limit},{__index=settings})
     end
     if picker then picker:Hide() end
+    if preview then
+        frame.restore:ClearAllPoints()
+        frame.restore:SetPoint("TOPRIGHT",frame,"TOPLEFT",preview.side==1 and 479 or 883,-134)
+        frame.restore:Show()
+    else
+        frame.restore:Hide()
+    end
     local left,right=ns.plan(c,role,query,nil,preview)
     local unit=role=="bear" and "TMI ↓" or (role=="restoration" or role=="druidHeal") and "지속 HPS" or "DPS"
     frame.notice:SetText(c.name.." · "..ns.roles[role][1]..(limit and (" · "..(settings.target and "저장한 장비 목표" or rankSource).." "..(settings.target or defaultTarget).."%") or "").."   "..(settings.pin and "고정 · "..ns.itemName(settings.pin) or "좌클릭 교체 · 우클릭 고정/해제"))

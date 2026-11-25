@@ -105,7 +105,9 @@ local function plannerClick(label)
     end
     error("planner control missing: "..label)
 end
-plannerClick("드루이드");plannerClick("야성 · 곰");plannerClick("가죽만")
+plannerClick("드루이드");plannerClick("야성 · 곰")
+assert(BiSFitCharacter.profiles.bear.prefer)
+plannerClick("가죽 우선");assert(BiSFitCharacter.profiles.bear.prefer==false);plannerClick("가죽만")
 assert(BiSFitCharacter.profiles.bear.prefer)
 plannerClick("주술사");plannerClick("드루이드")
 assert(BiSFitCharacter.lastRole[2]=="bear")
@@ -139,7 +141,12 @@ for _,node in ipairs(nodes) do
     if rawget(node,"id") and node.id~=gearButton.item then choice=node;break end
 end
 assert(choice);local selected=choice.id
+local original=gearButton.item
 choice.hooks.OnClick(choice)
+assert(BiSFitPlanner.restore:IsShown())
+plannerClick("미리보기 · 추천으로 복귀")
+assert(gearButton.item==original and not BiSFitPlanner.restore:IsShown())
+gearButton.hooks.OnClick(gearButton,"LeftButton");choice.hooks.OnClick(choice)
 assert(gearButton.item==selected and not BiSFitCharacter.profiles.balance.pin)
 gearButton.hooks.OnClick(gearButton,"RightButton")
 assert(BiSFitCharacter.profiles.balance.pin==selected)

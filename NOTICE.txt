@@ -1,10 +1,9 @@
 BiSFit for World of Warcraft: Forever (1.60.1)
-Open in game with /bisfit or /sfit.
+Open in game with /bis.
 Gear data and combat estimates use WoWSims Forever: https://github.com/wowsims/forever
 This addon has no affiliation with WoWSims or Blizzard.
-The item catalog is a curated pre-raid subset. Recommendations rank tested sets in this snapshot.
-The DPS profile is a reference Tauren, not the equipment, talents or buffs of the logged-in player.
-For Restoration, the displayed casting HPS is a rank 6 Lesser Healing Wave single-spell model.
+
+Third-party license for WoWSims Forever
 MIT License
 
 Copyright (c) 2022 wowsims team
