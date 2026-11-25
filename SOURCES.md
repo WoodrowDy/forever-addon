@@ -20,4 +20,6 @@
 ## 적중과 드루이드 EP
 
 - 레이드 비교 기준과 특성별 보정은 [Method](https://www.method.gg/wow-forever/how-does-hit-chance-work-in-wow-forever), [WoWF 주술사](https://wowf.io/en/talents/shaman), [WoWF 드루이드](https://wowf.io/en/talents/druid)를 참조합니다.
-- 조화는 [WoWSims PreBiSEpWeights](https://github.com/wowsims/forever/blob/a73af7145111ce19c621e3b5f678553adf326907/ui/specs/druid/balance/presets.ts), 표범·곰은 [CatEp / BearEp](https://github.com/wowsims/forever/blob/a73af7145111ce19c621e3b5f678553adf326907/ui/specs/druid/feral_ep.ts)의 장비 기본 능력치와 무기 DPS를 사용합니다. 회복 드루이드의 치유력 기준은 이 애드온의 단순 비교 기준입니다.
+- 조화는 [WoWSims PreBiSEpWeights](https://github.com/wowsims/forever/blob/a73af7145111ce19c621e3b5f678553adf326907/ui/specs/druid/balance/presets.ts), 표범은 [CatEp / BearEp](https://github.com/wowsims/forever/blob/a73af7145111ce19c621e3b5f678553adf326907/ui/specs/druid/feral_ep.ts)의 장비 기본 능력치와 무기 DPS를 사용합니다. 곰은 BearEp의 방어 성분만 후보 선별에 씁니다. 회복 드루이드의 지속 HPS는 단일 주문·고정 MP5 모델입니다.
+
+- [WoWSims 드루이드 역할 프로필](https://github.com/wowsims/forever/tree/a73af7145111ce19c621e3b5f678553adf326907/ui/specs/druid), [TMI 산식](https://github.com/wowsims/forever/blob/a73af7145111ce19c621e3b5f678553adf326907/sim/core/metrics_aggregator.go), [치유의 손길 주문 9889 수치](https://github.com/wowsims/forever/blob/a73af7145111ce19c621e3b5f678553adf326907/sim/core/spelldata/spells_auto_gen.go)

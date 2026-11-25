@@ -89,7 +89,9 @@ local function selectRole(key)
     rankSource=rank~=nil and "내 특성" or "미리보기"
     frame.bonus:SetText(tostring(settings.rank or rank or 0))
     defaultTarget=ns.roles[role][2]
-    if not settings.target and rank and defaultTarget then
+    if role=="bear" and settings.target==nil then
+        defaultTarget=0;frame.target:SetText("0")
+    elseif not settings.target and rank and defaultTarget then
         defaultTarget=defaultTarget-rank*class.talent.step
         frame.target:SetText(tostring(defaultTarget))
     end
@@ -204,19 +206,24 @@ redraw=function()
     end
     if picker then picker:Hide() end
     local left,right=ns.plan(c,role,query,nil,preview)
-    local unit=classIndex==2 and "EP" or (role=="restoration" and "HPS" or "DPS")
+    local unit=role=="bear" and "TMI ↓" or (role=="restoration" or role=="druidHeal") and "지속 HPS" or "DPS"
     frame.notice:SetText(c.name.." · "..ns.roles[role][1]..(limit and (" · "..(settings.target and "저장한 장비 목표" or rankSource).." "..(settings.target or defaultTarget).."%") or "").."   "..(settings.pin and "고정 · "..ns.itemName(settings.pin) or "좌클릭 교체 · 우클릭 고정/해제"))
     for side=1,2 do
         local r=left
         if side==2 then r=right end
         frame.head[side]:SetText((side==1 and mode or "혼합 허용")..(r and string.format("   %.1f %s",r.score,unit) or ""))
         frame.status[side]:SetText(limit and (ns.planStatus(r,side==1 and not settings.prefer)..(r and string.format(" · 장비 %.1f%%",r.hit) or "")) or (r and "치유 기준" or "조건에 맞는 후보 없음"))
+        if r and r.healing then
+            frame.status[side]:SetText(string.format("고정 MP5 %.1f · 종료 마나 %.0f",r.healing.mp5,r.healing.ending))
+        elseif r and r.dtps then
+            frame.status[side]:SetText(string.format("%s · 받는 DPS %.1f",ns.planStatus(r,side==1 and not settings.prefer),r.dtps))
+        end
         for slot,line in ipairs(rows) do
             local b=line[side];local id=r and r.row.gear[slot];b.item=id
             local opposite=left
             if side==1 then opposite=right end
             b.delta=ns.swapDelta(role,opposite and opposite.row,slot,id)
-            b.unmeasured=classIndex==1 and opposite and id and b.delta==nil
+            b.unmeasured=opposite and id and b.delta==nil
             b.unit=unit
             if id and id>0 then
                 b:SetText((id==settings.pin and "◆ " or "")..ns.itemName(id))
@@ -240,14 +247,24 @@ redraw=function()
     frame.stats:SetText(left and right and ("장비 기본 능력치 차이 · "..(#parts>0 and table.concat(parts,"  ") or "표시 항목 동일")) or "")
     local criteria
     if classIndex==1 then
-        criteria=role=="restoration" and "하급 치유의 물결 6단계 연속 시전 HPS" or
+        criteria=role=="restoration" and "하급 치유의 물결 6단계 · 180초 고정 MP5 모델" or
             ("63레벨 우두머리 · 180초 · 조합당 "..ns.data.iterations.."회")
         criteria=criteria.."\n참조 특성  "..ns.data.builds[role]
         for i,r in ipairs({left or false,right or false}) do
             if r then criteria=criteria.."\n"..(i==1 and mode or "혼합").." 세트 효과  "..table.concat(r.row.bonuses or {},", ") end
         end
     else
-        criteria=role=="druidHeal" and "기본 치유력 1당 1 EP" or "전문화별 장비 능력치 가중치로 계산한 EP"
+        criteria=role=="druidHeal" and "치유의 손길 10단계 · 180초 고정 MP5 모델 · 초과치유 제외" or
+            role=="bear" and "63레벨 우두머리 · 180초 × 256회 · 6초 TMI 낮은 순, 동점이면 받는 DPS" or
+            "WoWSims · 63레벨 단일 우두머리 · 180초 × 256회 평균 DPS"
+    end
+    for side,r in ipairs({left or false,right or false}) do
+        if r then
+            local se=r.row.bench and r.row.bench.se or r.row.se
+            if se and se>0 then
+                criteria=criteria..string.format("\n%s DPS 표준오차 %.2f",side==1 and mode or "혼합",se)
+            end
+        end
     end
     frame.criteria=criteria.."\n등록 후보 내 비교 · 데이터 "..ns.data.date
     frame.footer:SetText("등록 후보 "..#ns.planRows(role).."조합"..delta)

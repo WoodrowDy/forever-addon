@@ -143,3 +143,23 @@ gearButton.hooks.OnClick(gearButton,"RightButton")
 assert(BiSFitCharacter.profiles.balance.pin==selected)
 gearButton.hooks.OnClick(gearButton,"RightButton")
 assert(not BiSFitCharacter.profiles.balance.pin)
+local h,m=ns.healingBudget(100,2,50,100,0)
+assert(h==200/180 and m==0)
+local more,ending=ns.healingBudget(100,2,50,100,5)
+assert(more>h and ending>=0 and ending<=100)
+for _,role in ipairs({"balance","cat","bear","druidHeal"}) do
+    for _,row in ipairs(ns.planRows(role)) do
+        local b=assert(row.bench)
+        if role=="bear" then assert(b.tmi>0 and b.dtps>0)
+        elseif role=="druidHeal" then assert(b.mana>0 and b.heal>0)
+        else assert(b.dps>0 and b.se>=0) end
+    end
+end
+local _,tank=ns.plan(ns.classes[2],"bear",{})
+for _,row in ipairs(ns.planRows("bear")) do assert(tank.score<=row.bench.tmi) end
+for _,role in ipairs({"restoration","druidHeal"}) do
+    local class=role=="restoration" and ns.classes[1] or ns.classes[2]
+    local _,r=ns.plan(class,role,{})
+    assert(r.healing and r.score==r.healing.hps and r.healing.ending>=0)
+end
+print("OK: measured druid DPS, tank survival ordering and mana-limited healing")

@@ -1,8 +1,12 @@
 """Build item EP and a bounded druid set catalog from the same upstream DB as Data.lua."""
+import itertools
+import subprocess
 import json
 import re
 import sys
 from pathlib import Path
+
+from role_benchmarks import measure, shortlist
 
 root = Path(__file__).resolve().parents[1]
 db = {i['id']: i for i in json.loads(Path(sys.argv[1]).read_text())['items']}
@@ -16,8 +20,10 @@ weights = {
     'balance': {3:.2,5:1,6:.68,10:.32,17:1.45,18:.76,19:.95},
     'cat': {0:.594218,1:.654662,14:.243789,16:.243139,17:.521158,18:.505716,19:.393069,20:.074215,21:.490405,37:1.863062},
     'bear': {0:.48605,1:.433479,2:1.002875,14:.220932,16:.220932,17:.687945,18:.363262,19:.35813,20:.082629,21:1.775974,22:.875831,25:.107395,27:.174376,28:.174376,29:.077171,37:1.366686,38:.036912},
-    'druidHeal': {4:1}, # transparent healing-power-only baseline
+    'druidHeal': {4:1,31:1.86,3:.77}, # 180s reference item weights; final ranking uses sustained healing
 }
+# Retain only defensive components of the upstream bear scoring profile.
+weights['bear']={k:v for k,v in weights['bear'].items() if k in (1,2,22,25,27,28,29,38)}
 search = (root/'dev/search.ts').read_text().split('const emphasis')[0]
 for role, body in re.findall(r'(enhancement|elemental|restoration):\s*\{([^}]+)\}', search):
     weights[role] = {int(k):float(v) for k,v in re.findall(r'(\d+):\s*([\d.]+)',body)}
@@ -32,7 +38,7 @@ def ep(role,i):
     if not i: return 0
     w = weights[role]
     dps = db[i]['scalingOptions']['0'].get('unroundedDps',0)
-    return sum(w.get(int(k),0)*v for k,v in stats(i).items()) + dps*{'enhancement':14.18,'cat':2.14201,'bear':3.09305}.get(role,0)
+    return sum(w.get(int(k),0)*v for k,v in stats(i).items()) + dps*{'enhancement':14.18,'cat':2.14201}.get(role,0)
 
 def lua(v):
     if isinstance(v,dict):
@@ -41,37 +47,58 @@ def lua(v):
     return json.dumps(v,ensure_ascii=False)
 
 out = ['local _, ns = ...','ns.itemHit = {}','ns.itemEP = {}','ns.druidSets = {}']
-ids = shared.union(*bases)-{0}
+audit = json.loads(subprocess.check_output(
+    ['node', str(root/'dev/druid_catalog.ts'), sys.argv[1]], text=True))
+catalog = {item['id']: item for item in audit['items']}
+ids = shared | set(catalog)
+for role,base in zip(roles,bases):
+    for slot,i in enumerate(base,1):
+        if i and i not in catalog:
+            print(f"WOWF {role} slot={slot} id={i}: {audit['excluded'].get(str(i),'원본 DB 미수록')}")
+print(f"드루이드 공통 기준 통과: {len(catalog)}개")
 out.append('ns.gearStats='+lua({i:{int(k):v for k,v in stats(i).items()} for i in sorted(ids)}))
 out.append('ns.hitWeight='+lua({role:w.get(17,0) for role,w in weights.items()}))
 for i in sorted(ids):
     out.append(f'ns.itemHit[{i}]={hit(i)}')
 for role in weights:
     out.append('ns.itemEP.'+role+'='+lua({i:round(ep(role,i),4) for i in sorted(ids)}))
-common = [i for i in sorted(shared) if 11 in db[i].get('classAllowlist',[11]) and not db[i].get('limitCategory') and not db[i].get('factionRestriction')]
-# Compare independent equipment groups. Keep ring, trinket and weapon pairs
-# intact so a recombination never splits a two-hander or duplicates a unique.
-shaman_gears = [tuple(map(int,line.split(','))) for line in re.findall(r'gear=\{([\d,]+)\}',data)]
-common_set=set(common)
+by_type = {t:sorted(i for i,v in catalog.items() if v['type']==t) for t in range(1,15)}
+# Clusters must cover every shared unique-equipped category.
+category_types={}
+for v in catalog.values():
+    if v['category']:
+        category_types.setdefault(v['category'],set()).add(v['type'])
+if any(len(types)>1 for types in category_types.values()):
+    raise ValueError("Cross-slot equipment category needs joint validation")
+
+def compatible(a,b):
+    if not b: return True
+    return not ((a==b and catalog[a]['unique']) or
+                (catalog[a]['category'] and catalog[a]['category']==catalog[b]['category']) or
+                {a,b}=={13965,13968})
+
+def pairs(group):
+    if group in (11,12):
+        return [(a,b) for a,b in itertools.combinations_with_replacement(by_type[group],2)
+                if compatible(a,b)]
+    if group==13:
+        offhands=[i for i in by_type[13] if catalog[i]['weapon']==5]
+        return [(a,b) for a in by_type[13] if catalog[a]['hand'] in (1,2,4)
+                and catalog[a]['weapon']!=5
+                for b in ([0] if catalog[a]['hand']==4 else [0,*offhands]) if compatible(a,b)]
+    return [(i,) for i in by_type[group]]
+
 for role,base in zip(roles,bases):
     states = {(0,0):(0,())}
-    groups=[(i,) for i in range(10)]+[(10,11),(12,13),(14,15),(16,)]
-    for group in groups:
-        slot=group[0]
-        pool={tuple(base[i] for i in group)}
-        if slot < 10:
-            pool.update((i,) for i in common if db[i]['type']==slot+1 and
-                        (slot not in armor or db[i].get('armorType') in (1,2)))
-        elif slot in (10,12,14):
-            for g in shaman_gears:
-                pair=tuple(g[i] for i in group)
-                if not all(i==0 or i in common_set for i in pair):continue
-                if slot==14 and (db[pair[0]].get('weaponType') not in (2,3,4,8)
-                                 or (pair[1] and db[pair[1]].get('weaponType')!=5)):continue
-                pool.add(pair)
+    for group in range(1,15):
+        slot=group-1
+        pool=pairs(group)
+        # A reference item can break an EP tie only after passing the catalog rules.
+        if group==14:
+            pool.sort(key=lambda ids: ids[0]!=base[16])
         # For identical rating and material count only the best group can win.
         options={}
-        for group_ids in sorted(pool):
+        for group_ids in pool:
             wrong=int(slot in armor and db[group_ids[0]].get('armorType')!=2)
             key=(sum(hit(i) for i in group_ids),wrong)
             score=sum(ep(role,i) for i in group_ids)
@@ -83,13 +110,14 @@ for role,base in zip(roles,bases):
                 if key not in next_states or next_states[key][0]<score+points:
                     next_states[key]=(score+points,gear+group_ids)
         states=next_states
-    candidates={gear for _,gear in states.values()}|{tuple(base)}
-    # Keep the best candidate for each rating, plus the source set for pinning.
-    rows=['{gear='+lua(g)+',perf='+str(round(sum(ep(role,i) for i in g),4))+'}' for g in sorted(candidates,key=lambda g:(-sum(ep(role,i) for i in g),g))]
+    candidates=shortlist(states)
+    metrics=measure(Path(sys.argv[1]).resolve().parents[2], Path(sys.argv[2]).resolve(),role,candidates)
+    print(role,len(metrics),flush=True)
+    # Ship only benchmarked finalists.
+    rows=['{gear='+lua(g)+',perf='+str(round(sum(ep(role,i) for i in g),4))+',bench='+lua(metrics[g])+'}' for g in sorted(candidates,key=lambda g:(-sum(ep(role,i) for i in g),g))]
     out.append('ns.druidSets.'+role+'={\n'+',\n'.join(rows)+'\n}')
 for i in sorted(ids-shared):
     x=db[i]
-    sources=x.get('sources',[])
-    detail=next((s['soldBy'].get('npcName') for s in sources if s.get('soldBy',{}).get('npcName')),None)
-    out.append(f'ns.data.items[{i}]='+lua([x['name'], detail or 'WOWF.IO · 역할별 추천 목록',x.get('armorType',0),x['quality'],x.get('icon','')]))
+    detail=catalog[i]['source']
+    out.append(f'ns.data.items[{i}]='+lua([x['name'], detail,x.get('armorType',0),x['quality'],x.get('icon','')]))
 (root/'PlannerData.lua').write_text('\n'.join(out)+'\n')

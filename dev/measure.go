@@ -17,6 +17,8 @@ type Measurement struct {
 	Stats      []float64 `json:"stats"`
 	Pseudo     []float64 `json:"pseudo"`
 	Sets       []string  `json:"sets"`
+	DTPS       float64   `json:"dtps"`
+	TMI        float64   `json:"tmi"`
 	Mean       float64   `json:"mean"`
 	SD         float64   `json:"sd"`
 	Iterations int32     `json:"iterations"`
@@ -41,6 +43,12 @@ func main() {
 				panic(result.Error.Message)
 			}
 			metrics := result.RaidMetrics.Parties[0].Players[0]
+			if metrics.Dtps != nil {
+				m.DTPS = metrics.Dtps.Avg
+			}
+			if metrics.Tmi != nil {
+				m.TMI = metrics.Tmi.Avg
+			}
 			m.Mean, m.SD, m.Iterations = metrics.Dps.Avg, metrics.Dps.Stdev, result.IterationsDone
 			if m.Mean <= 0 || m.Iterations != req.SimOptions.Iterations {
 				panic("incomplete damage simulation")

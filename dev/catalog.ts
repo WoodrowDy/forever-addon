@@ -93,29 +93,28 @@ export type Item = {
   rep: boolean;
   unique: boolean;
 };
-export function catalog(db: any): Item[] {
+export function catalog(db: any, classID: 7 | 11 = 7, excluded = new Map<number,string>()): Item[] {
   const npc = new Map<number, string>(
     db.npcs.map((x: any) => [x.id, x.name.trim()]),
   );
   const result: Item[] = [];
   for (const x of db.items) {
     const opt = x.scalingOptions?.["0"];
-    if (
-      !opt ||
-      opt.ilvl < 48 ||
-      (x.reqLvl ?? 0) > 60 ||
-      x.phase !== 1 ||
-      x.quality < 3 ||
-      x.quality > 4 ||
-      x.armorType === 4 ||
-      x.randomSuffixOptions?.length ||
-      x.factionRestriction ||
-      x.requiredProfession ||
-      (x.classAllowlist && !x.classAllowlist.includes(7)) ||
-      (x.type === 14 && x.rangedWeaponType !== 8) ||
-      (x.type === 13 && ![1, 2, 3, 4, 5, 7, 8].includes(x.weaponType))
-    )
-      continue;
+    const reject = !x.type ? "착용 부위 없음"
+      : !opt ? "기본 능력치 없음"
+      : opt.ilvl < 48 ? "아이템 레벨 48 미만"
+      : (x.reqLvl ?? 0) > 60 ? "요구 레벨 초과"
+      : x.phase !== 1 ? "페이즈 범위 밖"
+      : x.quality < 3 || x.quality > 4 ? "희귀·영웅 이외"
+      : (x.armorType ?? 0) > (classID === 7 ? 3 : 2) ? "방어구 재질 제한"
+      : x.randomSuffixOptions?.length ? "무작위 능력치"
+      : x.factionRestriction ? "진영 전용"
+      : x.requiredProfession ? "착용 전문기술 제한"
+      : x.classAllowlist && !x.classAllowlist.includes(classID) ? "직업 전용"
+      : x.type === 14 && x.rangedWeaponType !== (classID === 7 ? 8 : 6) ? "성물 종류"
+      : x.type === 13 && !(classID === 7 ? [1,2,3,4,5,7,8] : [2,3,4,5,8]).includes(x.weaponType) ? "무기 종류"
+      : "";
+    if (reject) { excluded.set(x.id,reject); continue; }
     const sources = x.sources ?? [];
     const drops = sources
       .map((s: any) => s.drop)
@@ -143,7 +142,7 @@ export function catalog(db: any): Item[] {
         (koBoss[first.npcId] ?? npc.get(first.npcId)) +
         (drops.length > 1 ? " 외" : "");
     }
-    if (pix.has(x.id) && sources.some((s: any) => s.soldBy?.npcId === 227853))
+    if ((pix.has(x.id) || (classID === 11 && x.type === 14)) && sources.some((s: any) => s.soldBy?.npcId === 227853))
       source = "픽스 시직스 · 빛바랜 언더마인화";
     const reputation = sources.find(
       (s: any) => s.rep?.repFactionId === 2819,
@@ -156,7 +155,11 @@ export function catalog(db: any): Item[] {
           reputation.repLevel
         ] ?? "평판");
     }
-    if (!source) continue;
+    if (!source && classID === 11 && x.setId === 1667 &&
+        sources.some((s:any) => [230317,230319].includes(s.soldBy?.npcId))) {
+      source = "T0.5 연퀘 · 델리아나 / 모크바르";
+    }
+    if (!source) { excluded.set(x.id,"등록 획득처 미확인"); continue; }
     result.push({
       id: x.id,
       name: names[x.id] ?? x.name,
@@ -177,10 +180,10 @@ export function catalog(db: any): Item[] {
   }
   if (result.some((x) => x.id === 279260))
     throw Error("Raid-reagent craft in the pre-raid pool");
-  if (
+  if (classID === 7 && (
     !result.some((x) => x.id === 277117) ||
     !result.some((x) => x.id === 11726)
-  )
+  ))
     throw Error("Missing reference items");
   return result.sort((a, b) => a.id - b.id);
 }
