@@ -14,11 +14,11 @@ local function better(a,b,mode)
     if mode=="prefer" and a.other~=b.other then return a.other<b.other end
     return a.score>b.score
 end
-function ns.plan(class,role,p)
+function ns.plan(class,role,p,picker,preview)
     local left,right
     local target=ns.roles[role][2] and (p.target or ns.roles[role][2]) or 0
     for _,row in ipairs(ns.planRows(role)) do
-        if matches(row.gear,p.pin) and not (p.noRep and row.rep) and not (p.noTier and row.tier) then
+        if (not p.pinSlot or row.gear[p.pinSlot]==p.pin) and matches(row.gear,p.pin) and not (p.noRep and row.rep) and not (p.noTier and row.tier) then
             local hit,other=0,0
             for _,id in ipairs(row.gear) do hit=hit+(ns.itemHit[id] or 0) end
             for _,slot in ipairs(armorSlots) do
@@ -29,8 +29,14 @@ function ns.plan(class,role,p)
                 score=score-math.max(0,hit-target*10)*ns.hitWeight[role]
             end
             local result={row=row,score=score,hit=hit/10,short=math.max(0,target-hit/10),other=other}
-            if better(result,right,"mixed") then right=result end
-            if (other==0 or p.prefer) and better(result,left,p.prefer and "prefer" or "strict") then left=result end
+            local leftOK=other==0 or p.prefer
+            if picker and (picker.side==2 or leftOK) then
+                local id=row.gear[picker.slot]
+                if id>0 then picker.ids[id]=true end
+            end
+            local selected=not preview or row.gear[preview.slot]==preview.id
+            if (not preview or preview.side~=2 or selected) and better(result,right,"mixed") then right=result end
+            if leftOK and (not preview or preview.side~=1 or selected) and better(result,left,p.prefer and "prefer" or "strict") then left=result end
         end
     end
     return left,right

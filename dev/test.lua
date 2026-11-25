@@ -73,41 +73,6 @@ GetBuildInfo=function() return "1.60.1","test" end
 if not unpack then unpack=table.unpack end
 loadAddon("Classes/Shaman");loadAddon("Classes/Druid")
 C_Item={GetItemIconByID=function(id) return id end}
-loadAddon("Window")
-events.PLAYER_LOGIN.hooks.OnEvent(nil,"PLAYER_LOGIN")
-SlashCmdList.BISFIT();assert(BiSFitWindow:IsShown())
-for _,wanted in ipairs({"정기","복원","고양"}) do
-    for _,b in ipairs(nodes) do if b.kind=="Button" and type(rawget(b,"caption"))=="table" and b.caption.text==wanted then b.hooks.OnClick(b);break end end
-end
-assert(BiSFitCharacter.spec=="enhancement")
-local function clickButton(text)
-    for _,b in ipairs(nodes) do
-        if b.kind=="Button" and rawget(b,"caption") and b.caption.text==text then b.hooks.OnClick(b);return end
-    end
-    error("missing button "..text)
-end
-clickButton("평판 포함");assert(BiSFitCharacter.noRep)
-clickButton("T0.5 포함");assert(BiSFitCharacter.noTier)
-clickButton("계산 기준");assert(BiSFitProfile:IsShown());BiSFitProfile:Hide()
-local hit
-for _,b in ipairs(nodes) do if b.kind=="Button" and type(rawget(b,"item"))=="number" and b.item>0 then hit=b;break end end
-assert(hit);hit.hooks.OnClick(hit,"LeftButton");assert(BiSFitPicker:IsShown())
-local row
-for _,b in ipairs(nodes) do if rawget(b,"id") and b.id>0 then row=b;break end end
-assert(row);row.hooks.OnClick(row);assert(BiSFitCharacter.pin==row.id)
-hit.hooks.OnClick(hit,"RightButton");assert(not BiSFitCharacter.pin)
-SlashCmdList.BISFIT();assert(not BiSFitWindow:IsShown())
-SlashCmdList.BISFIT()
-clickButton("드루이드")
-local druidRow
-for _,node in ipairs(nodes) do if node.item==226773 then druidRow=node;break end end
-assert(druidRow and druidRow.hooks.OnEnter)
-function GameTooltip:SetHyperlink(link) self.link=link end
-druidRow.hooks.OnEnter(druidRow);assert(GameTooltip.link=="item:226773")
-clickButton("야성 · 곰");assert(druidRow.item==270117)
-clickButton("주술사");clickButton("드루이드");assert(druidRow.item==270117)
-SlashCmdList.BISFIT();assert(not BiSFitWindow:IsShown())
-print("OK: three specs, "..totals.." complete sets, armor, reputation, pins, deltas, window and controls")
 loadAddon("PlannerData");loadAddon("Planner");loadAddon("PlannerWindow")
 function methods:GetText() return self.text end
 for _,class in ipairs(ns.classes) do
@@ -160,3 +125,21 @@ assert(BiSFitCharacter.profiles.balance.target==12)
 plannerClick("주술사");plannerClick("드루이드")
 assert(boxes[1].text=="12")
 print("OK: detected talent points, manual override, invalid input and saved targets")
+
+assert(SLASH_BISFITPLAN1=="/bis" and SLASH_BISFITPLAN2=="/bisfit" and SLASH_BISFITPLAN3=="/sfit")
+local gearButton
+for _,node in ipairs(nodes) do
+    if rawget(node,"item") and node.item>0 then gearButton=node;break end
+end
+assert(gearButton);gearButton.hooks.OnClick(gearButton,"LeftButton")
+local choice
+for _,node in ipairs(nodes) do
+    if rawget(node,"id") and node.id~=gearButton.item then choice=node;break end
+end
+assert(choice);local selected=choice.id
+choice.hooks.OnClick(choice)
+assert(gearButton.item==selected and not BiSFitCharacter.profiles.balance.pin)
+gearButton.hooks.OnClick(gearButton,"RightButton")
+assert(BiSFitCharacter.profiles.balance.pin==selected)
+gearButton.hooks.OnClick(gearButton,"RightButton")
+assert(not BiSFitCharacter.profiles.balance.pin)
