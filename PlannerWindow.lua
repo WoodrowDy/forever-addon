@@ -255,8 +255,8 @@ redraw=function()
         end
     else
         criteria=role=="druidHeal" and "치유의 손길 10단계 · 180초 고정 MP5 모델 · 초과치유 제외" or
-            role=="bear" and "63레벨 우두머리 · 180초 × 256회 · 6초 TMI 낮은 순, 동점이면 받는 DPS" or
-            "WoWSims · 63레벨 단일 우두머리 · 180초 × 256회 평균 DPS"
+            role=="bear" and "63레벨 우두머리 · 180초 × "..ns.druidIterations.bear.."회 · 6초 TMI 낮은 순, 동점이면 받는 DPS" or
+            "WoWSims · 63레벨 단일 우두머리 · 180초 × "..ns.druidIterations.dps.."회 평균 DPS"
     end
     for side,r in ipairs({left or false,right or false}) do
         if r then

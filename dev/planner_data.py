@@ -6,11 +6,12 @@ import re
 import sys
 from pathlib import Path
 
-from role_benchmarks import measure, shortlist
+from role_benchmarks import BEAR_ITERATIONS, measure, shortlist
 
 root = Path(__file__).resolve().parents[1]
 db = {i['id']: i for i in json.loads(Path(sys.argv[1]).read_text())['items']}
 data = (root/'Data.lua').read_text()
+dps_iterations = int(re.search(r"^iterations=(\d+),$", data, re.M)[1])
 shared = set(map(int, re.findall(r'^\[(\d+)\]=', data, re.M)))
 roles = ['balance', 'cat', 'bear', 'druidHeal']
 templates = (root/'Classes/Druid.lua').read_text().split('ns.druidItemIDs = {')[1].split('\n}')[0]
@@ -46,7 +47,8 @@ def lua(v):
     if isinstance(v,(tuple,list)):return '{'+','.join(map(lua,v))+'}'
     return json.dumps(v,ensure_ascii=False)
 
-out = ['local _, ns = ...','ns.itemHit = {}','ns.itemEP = {}','ns.druidSets = {}']
+out = ['local _, ns = ...','ns.itemHit = {}','ns.itemEP = {}','ns.druidSets = {}',
+       f'ns.druidIterations = {{dps={dps_iterations}, bear={BEAR_ITERATIONS}}}']
 audit = json.loads(subprocess.check_output(
     ['node', str(root/'dev/druid_catalog.ts'), sys.argv[1]], text=True))
 catalog = {item['id']: item for item in audit['items']}
@@ -111,7 +113,7 @@ for role,base in zip(roles,bases):
                     next_states[key]=(score+points,gear+group_ids)
         states=next_states
     candidates=shortlist(states)
-    metrics=measure(Path(sys.argv[1]).resolve().parents[2], Path(sys.argv[2]).resolve(),role,candidates)
+    metrics=measure(Path(sys.argv[1]).resolve().parents[2], Path(sys.argv[2]).resolve(),role,candidates,dps_iterations)
     print(role,len(metrics),flush=True)
     # Ship only benchmarked finalists.
     rows=['{gear='+lua(g)+',perf='+str(round(sum(ep(role,i) for i in g),4))+',bench='+lua(metrics[g])+'}' for g in sorted(candidates,key=lambda g:(-sum(ep(role,i) for i in g),g))]

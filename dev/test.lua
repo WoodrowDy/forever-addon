@@ -73,7 +73,9 @@ GetBuildInfo=function() return "1.60.1","test" end
 if not unpack then unpack=table.unpack end
 loadAddon("Classes/Shaman");loadAddon("Classes/Druid")
 C_Item={GetItemIconByID=function(id) return id end}
-loadAddon("PlannerData");loadAddon("Planner");loadAddon("PlannerWindow")
+loadAddon("PlannerData")
+assert(ns.druidIterations.dps == d.iterations and ns.druidIterations.bear > 0)
+loadAddon("Planner");loadAddon("PlannerWindow")
 function methods:GetText() return self.text end
 for _,class in ipairs(ns.classes) do
     for _,role in ipairs(class.roles) do

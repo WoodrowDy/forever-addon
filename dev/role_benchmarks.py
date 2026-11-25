@@ -9,7 +9,7 @@ TALENTS = {'balance':'5232220115501351--5053','cat':'050021-53200032123012125001
            'bear':'050022-5023030212310112501-055','druidHeal':''}
 SPECS = {'balance':('balance','balanceDruid'),'cat':('feralcat','feralCatDruid'),
          'bear':('feralbear','feralBearDruid'),'druidHeal':('restoration','restorationDruid')}
-ITERATIONS = 256
+BEAR_ITERATIONS = 256
 
 def shortlist(states):
     # Retain EP leaders under every whole-percent gear target and material count.
@@ -23,7 +23,7 @@ def shortlist(states):
             selected.update(r[2] for r in top[:2])
     return sorted(selected)
 
-def measure(checkout, helper, role, gears):
+def measure(checkout, helper, role, gears, dps_iterations):
     folder,spec=SPECS[role]
     profile=json.loads((checkout/'ui/specs/shaman/elemental/builds/default.build.json').read_text())
     encounter=profile['encounter']
@@ -40,7 +40,8 @@ def measure(checkout, helper, role, gears):
         raid['tanks']=[{'type':'Player','index':0}]
         player['healingModel']={'burstWindow':6,'hps':5000,'cadenceSeconds':2}
         encounter['targets'][0]['tankIndex']=0
-    req={'raid':raid,'encounter':encounter,'simOptions':{'iterations':0 if role=='druidHeal' else ITERATIONS,'randomSeed':'251125'}}
+    iterations = {'bear': BEAR_ITERATIONS, 'druidHeal': 0}.get(role, dps_iterations)
+    req={'raid':raid,'encounter':encounter,'simOptions':{'iterations':iterations,'randomSeed':'251125'}}
     inputs=[]
     for gear in gears:
         player['equipment']={'items':[{'id':i} if i else {} for i in gear]}
@@ -61,7 +62,7 @@ def measure(checkout, helper, role, gears):
             stats,pseudo=m['stats'],m['pseudo']
             heal=(1946.4+stats[4])*(1+max(0,min(100,pseudo[15]))/200)
             record={'heal':heal,'cast':max(1,3.5/(1+pseudo[22]/100)),'mana':stats[30],'mp5':stats[31]}
-        else:record={'dps':m['mean'],'se':m['sd']/math.sqrt(ITERATIONS)}
+        else:record={'dps':m['mean'],'se':m['sd']/math.sqrt(dps_iterations)}
         if not all(math.isfinite(x) and x>=0 for x in record.values()) or not next(iter(record.values())) or (role=="bear" and record["tmi"]<=0):
             raise ValueError(f"Invalid {role} benchmark {record}")
         metrics[gear]={k:round(v,4) for k,v in record.items()}
