@@ -32,7 +32,7 @@ const weights: Record<Spec, Record<number, number>> = {
 };
 const emphasis: Record<Spec, number[]> = {
   enhancement: [
-    277117, 14503, 12927, 11726, 14615, 14614, 14612, 14616, 11815, 272437,
+    15062, 15063, 15065, 19044, 19049, 277117, 14503, 12927, 11726, 14615, 14614, 14612, 14616, 11815, 272437,
     280056, 280018, 12784, 19323, 13965, 22395, 272432,
   ],
   elemental: [
@@ -168,6 +168,23 @@ export function search(items: Item[], spec: Spec) {
           const ids = fit.flatMap((x) => x.ids);
           gears.set(ids.join(), ids);
           return fit;
+        }
+        // Preserve a maximum-hit witness under each filter, then trade surplus hit for EP.
+        if (spec !== "restoration") {
+          const maxHit = group.map(options => options.reduce((best, item) =>
+            item.hit > best.hit || (item.hit === best.hit && item.value > best.value) ? item : best));
+          gears.set(maxHit.flatMap(o => o.ids).join(), maxHit.flatMap(o => o.ids));
+          const targets = spec === "elemental" ? [120, 130, 140, 150, 160, 170] : [30, 40, 50, 60, 70, 80];
+          for (const target of targets) {
+            const fit = maxHit.slice();
+            for (let slot = 0; slot < group.length; slot++) {
+              const otherHit = fit.reduce((sum, item, index) => sum + (index === slot ? 0 : item.hit), 0);
+              const choice = group[slot].find(item => otherHit + item.hit >= target);
+              if (choice) fit[slot] = choice;
+            }
+            const gear = fit.flatMap(o => o.ids);
+            gears.set(gear.join(), gear);
+          }
         }
         const base = improve(group.map((g) => g[0]));
         for (let n = 0; n < group.length; n++) {

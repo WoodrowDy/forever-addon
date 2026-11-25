@@ -4,6 +4,17 @@ local function loadAddon(name) assert(loadfile(name..".lua"))("BiSFit",ns) end
 loadAddon("Data");loadAddon("Compare")
 local d=ns.data
 assert(d.items[277117][2]:find("그리즐"));assert(d.items[11726][2]:find("고로쉬"))
+local referenceFound = false
+for _, row in ipairs(d.sets.enhancement) do
+    local gear = row.gear
+    if gear[1]==20134 and gear[2]==22150 and gear[3]==14503 and gear[5]==11726
+        and gear[7]==14615 and gear[8]==14614 and gear[9]==14612 and gear[10]==14616
+        and gear[13]==272437 and gear[14]==11815 and gear[15]==280056 then
+        referenceFound = true
+        break
+    end
+end
+assert(referenceFound, "missing measured WoWF reference variant")
 local armor={1,3,5,6,7,8,9,10}
 assert(not d.items[279260],"craft locked behind an unreleased raid material")
 local totals=0
@@ -73,7 +84,7 @@ GetBuildInfo=function() return "1.60.1","test" end
 if not unpack then unpack=table.unpack end
 loadAddon("Classes/Shaman");loadAddon("Classes/Druid")
 C_Item={GetItemIconByID=function(id) return id end}
-loadAddon("PlannerData")
+loadAddon("PlannerData");loadAddon("HitCaps");loadAddon("ConfirmedDPS")
 assert(ns.druidIterations.dps == d.iterations and ns.druidIterations.bear > 0)
 loadAddon("Planner");loadAddon("PlannerWindow")
 function methods:GetText() return self.text end
@@ -172,3 +183,25 @@ for _,role in ipairs({"restoration","druidHeal"}) do
     assert(r.healing and r.score==r.healing.hps and r.healing.ending>=0)
 end
 print("OK: measured druid DPS, tank survival ordering and mana-limited healing")
+
+for _,strict in ipairs({false,true}) do
+    local caps=ns.maxGearHit("elemental",{target=12},strict)
+    local left,right=ns.plan(ns.classes[1],"elemental",{target=100})
+    assert(caps==(strict and left or right).hit,"unrestricted maximum-hit witness missing")
+end
+
+-- Guard against publishing a shortlist that misses the attainable Elemental raid target.
+local elemental=ns.classes[1]
+local pure,mixed=ns.plan(elemental,"elemental",{target=12})
+assert(pure and mixed and pure.short==0 and mixed.short==0)
+assert(mixed.score>=pure.score)
+local pinned={target=8,pin=12927,pinSlot=3}
+assert(ns.maxGearHit("enhancement",pinned,true)==nil)
+local _,leather=ns.plan(elemental,"enhancement",pinned)
+assert(leather and leather.hit<=ns.maxGearHit("enhancement",pinned,false))
+local baseline=ns.plan(elemental,"enhancement",{target=8})
+local step=ns.oneArmorUpgrade(elemental,"enhancement",{target=8},baseline)
+if step then assert(step.score>baseline.score) end
+assert(type(ns.confirmedDPS)=="table","missing confirmation data")
+for _,value in pairs(ns.confirmedDPS) do assert(value[1]>0 and value[2]>0) end
+print("OK: feasible hit targets, pinned material limits and independent DPS confirmations")

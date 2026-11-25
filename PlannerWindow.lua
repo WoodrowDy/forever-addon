@@ -219,6 +219,7 @@ redraw=function()
         frame.restore:Hide()
     end
     local left,right=ns.plan(c,role,query,nil,preview)
+    local changed = {}
     local unit=role=="bear" and "TMI ↓" or (role=="restoration" or role=="druidHeal") and "지속 HPS" or "DPS"
     frame.notice:SetText(c.name.." · "..ns.roles[role][1]..(limit and (" · "..(settings.target and "저장한 장비 목표" or rankSource).." "..(settings.target or defaultTarget).."%") or "").."   "..(settings.pin and "고정 · "..ns.itemName(settings.pin) or "좌클릭 교체 · 우클릭 고정/해제"))
     for side=1,2 do
@@ -235,16 +236,43 @@ redraw=function()
             local b=line[side];local id=r and r.row.gear[slot];b.item=id
             local opposite=left
             if side==1 then opposite=right end
+            local differs = r and opposite and id ~= opposite.row.gear[slot]
+            if side==1 and differs then changed[#changed+1]=slot==17 and "성물" or ns.slotNames[slot] end
             b.delta=ns.swapDelta(role,opposite and opposite.row,slot,id)
             b.unmeasured=opposite and id and b.delta==nil
             b.unit=unit
             if id and id>0 then
-                b:SetText((id==settings.pin and "◆ " or "")..ns.itemName(id))
+                b:SetText((differs and "↔ " or "")..(id==settings.pin and "◆ " or "")..ns.itemName(id))
                 b.icon:SetTexture(C_Item.GetItemIconByID(id) or 134400);b.icon:Show()
             else b:SetText("—");b.icon:Hide() end
         end
     end
-    local delta=left and right and string.format(" · 혼합 대비 %+.2f %s",left.score-right.score,unit) or ""
+    local delta=""
+    local confirmation=""
+    if left and right then
+        if left.short>0 or right.short>0 then
+            delta=" · 적중 목표 미달 · 동조건 성능 비교 보류"
+        elseif #changed==0 then
+            delta=" · 양쪽 장비 동일"
+        else
+            local diff=left.score-right.score
+            delta=string.format(" · 혼합 대비 %+.2f %s (%+.2f%%) · 교체 %d부위",diff,unit,100*diff/right.score,#changed)
+            if unit=="DPS" then
+                local lm,rm=left.row.bench or left.row,right.row.bench or right.row
+                local confirmed=ns.confirmedDPS or {}
+                local l=confirmed[role.."/"..table.concat(left.row.gear,",")]
+                local r=confirmed[role.."/"..table.concat(right.row.gear,",")]
+                if l and r then
+                    local difference=l[1]-r[1]
+                    local margin=1.96*math.sqrt(l[2]^2+r[2]^2)
+                    confirmation=string.format("\n독립 재측정 각 6,400회 · 차이 %+.2f ± %.2f DPS (약 95%%)",difference,margin)
+                    if math.abs(difference)<=margin then delta=delta.." · 우열 불분명" end
+                elseif math.abs(diff)<=2*((lm.se or 0)+(rm.se or 0)) then
+                    delta=delta.." · 근소한 차이"
+                end
+            end
+        end
+    end
     local parts={}
     if left and right then
         for _,v in ipairs({{0,"힘"},{1,"민첩"},{2,"체력"},{3,"지능"},{4,"치유력"},{5,"주문 피해"},{17,"적중 평점"}}) do
@@ -261,7 +289,7 @@ redraw=function()
     local criteria
     if classIndex==1 then
         criteria=role=="restoration" and "하급 치유의 물결 6단계 · 180초 고정 MP5 모델" or
-            ("63레벨 우두머리 · 180초 · 조합당 "..ns.data.iterations.."회")
+            ("63레벨 우두머리 · 평균 5분(4~6분) · 조합당 "..ns.data.iterations.."회")
         criteria=criteria.."\n참조 특성  "..ns.data.builds[role]
         for i,r in ipairs({left or false,right or false}) do
             if r then criteria=criteria.."\n"..(i==1 and mode or "혼합").." 세트 효과  "..table.concat(r.row.bonuses or {},", ") end
@@ -269,7 +297,22 @@ redraw=function()
     else
         criteria=role=="druidHeal" and "치유의 손길 10단계 · 180초 고정 MP5 모델 · 초과치유 제외" or
             role=="bear" and "63레벨 우두머리 · 180초 × "..ns.druidIterations.bear.."회 · 6초 TMI 낮은 순, 동점이면 받는 DPS" or
-            "WoWSims · 63레벨 단일 우두머리 · 180초 × "..ns.druidIterations.dps.."회 평균 DPS"
+            "WoWSims · 63레벨 단일 우두머리 · 평균 5분(4~6분) × "..ns.druidIterations.dps.."회 평균 DPS"
+    end
+    if unit=="DPS" then
+        for side=1,2 do
+            local strict=side==1 and not settings.prefer
+            local maxHit=ns.maxGearHit(role,query,strict)
+            if maxHit then
+                local label=side==1 and mode or "혼합"
+                criteria=criteria..string.format("\n%s 등록 장비 최대 적중 %.1f%%",label,maxHit)
+                local result=right
+                if side==1 then result=left end
+                if not preview and maxHit>=(query.target or 0) and (not result or result.short>0) then
+                    frame.status[side]:SetText("목표 달성 가능 · 충족한 측정 후보 없음")
+                end
+            end
+        end
     end
     for side,r in ipairs({left or false,right or false}) do
         if r then
@@ -279,7 +322,17 @@ redraw=function()
             end
         end
     end
-    frame.criteria=criteria.."\n등록 후보 내 비교 · 데이터 "..ns.data.date
+    if unit=="DPS" and not preview and left and left.other==0 and left.short==0 then
+        local step,slot=ns.oneArmorUpgrade(c,role,query,left)
+        if step then
+            criteria=criteria..string.format("\n한 부위만 교체 · %s · %s · %+.2f DPS",
+                ns.slotNames[slot],ns.itemName(step.item),step.score-left.score)
+        else
+            criteria=criteria.."\n한 부위만 교체 · 적중을 유지하며 DPS가 오르는 측정 후보 없음"
+        end
+    end
+    if #changed>0 then criteria=criteria.."\n교체 부위 · "..table.concat(changed,", ") end
+    frame.criteria=criteria..confirmation.."\n등록 후보 내 비교 · 데이터 "..ns.data.date
     frame.footer:SetText("등록 후보 "..#ns.planRows(role).."조합"..delta)
 end
 SLASH_BISFITPLAN1="/bis"

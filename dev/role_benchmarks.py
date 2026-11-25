@@ -23,11 +23,12 @@ def shortlist(states):
             selected.update(r[2] for r in top[:2])
     return sorted(selected)
 
-def measure(checkout, helper, role, gears, dps_iterations):
+def measure(checkout, helper, role, gears, dps_iterations, seed=251125):
     folder,spec=SPECS[role]
     profile=json.loads((checkout/'ui/specs/shaman/elemental/builds/default.build.json').read_text())
     encounter=profile['encounter']
-    encounter.update(duration=180,durationVariation=0)
+    is_dps = role in ("balance", "cat")
+    encounter.update(duration=300 if is_dps else 180, durationVariation=60 if is_dps else 0)
     player={'race':'RaceTauren','class':'ClassDruid','talentsString':TALENTS[role],
             spec:{'options':{'classOptions':{}}},'name':'BiSFit'}
     raid={'parties':[{'players':[player]}]}
@@ -41,7 +42,7 @@ def measure(checkout, helper, role, gears, dps_iterations):
         player['healingModel']={'burstWindow':6,'hps':5000,'cadenceSeconds':2}
         encounter['targets'][0]['tankIndex']=0
     iterations = {'bear': BEAR_ITERATIONS, 'druidHeal': 0}.get(role, dps_iterations)
-    req={'raid':raid,'encounter':encounter,'simOptions':{'iterations':iterations,'randomSeed':'251125'}}
+    req={'raid':raid,'encounter':encounter,'simOptions':{'iterations':iterations,'randomSeed':str(seed)}}
     inputs=[]
     for gear in gears:
         player['equipment']={'items':[{'id':i} if i else {} for i in gear]}

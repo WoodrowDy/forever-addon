@@ -35,10 +35,14 @@ GitHub Actions에서 성공한 **Test and package the addon** 실행을 열고 *
 | 역할 | 지원 전문화 | 장비 평가 기준 |
 | --- | --- | --- |
 | 탱 | 야성 드루이드(곰) | 세트당 180초 전투를 256회 측정합니다. 6초 동안 받은 피해가 얼마나 집중되는지 나타내는 TMI가 낮은 순입니다. 동점이면 초당 받은 피해가 적은 세트를 선택합니다. |
-| 딜 | 고양·정기 주술사, 조화·야성(표범) 드루이드 | 180초 단일 대상 전투에서 평균 DPS가 높은 순입니다. 네 딜 전문화 모두 장비 세트당 1,600회 측정합니다. |
+| 딜 | 고양·정기 주술사, 조화·야성(표범) 드루이드 | 평균 5분(4~6분) 단일 대상 전투에서 평균 DPS가 높은 순입니다. 네 딜 전문화 모두 장비 세트당 1,600회 측정합니다. |
 | 힐 | 복원 주술사, 회복 드루이드 | 180초간 마나로 감당할 수 있는 지속 HPS가 높은 순입니다. 5초당 고정 마나 회복량(MP5)과 전투 종료 시 남는 마나도 표시합니다. |
 
 하단의 **혼합 대비**는 왼쪽 세트 값에서 오른쪽 값을 뺀 차이입니다. 예를 들어 고술의 −3 DPS는 사슬 쪽의 기대 DPS가 3 낮다는 뜻입니다. 능력치 차이는 아이템 기본 수치의 합으로, 적중은 평점으로 표시합니다. **계산 기준 ⓘ**에서 측정 조건과 딜 세트의 표준오차를 확인할 수 있습니다.
+
+**파밍 비교** · 서로 다른 장비 줄은 ↔로 표시합니다. 양쪽이 적중 목표를 충족하면 하단에 전체 세트의 DPS 차이·백분율·교체 부위 수를 표시합니다. 왼쪽이 순수 직업 방어구 세트이면 계산 기준에서 나머지 장비를 그대로 두고 한 부위만 교체했을 때 적중을 유지하며 얻을 수 있는 최대 측정 DPS 이득도 볼 수 있습니다. 계산 기준에서 바뀐 부위와 각 열의 획득 가능 목록 기준 최대 장비 적중을 확인할 수 있습니다. 고정 장비와 제외 조건도 최대치 계산에 반영합니다. 임시 미리보기는 최대치 계산에서 제외합니다.
+
+일반 조회의 근접한 딜 후보는 데이터 갱신 때 서로 다른 난수로 세트당 6,400회 추가 측정합니다. 계산 기준의 약 95% 오차 범위는 추가 측정에서 얻은 두 평균의 차이에 대한 값입니다. 슬롯을 고정하거나 미리보기로 선택한 조합에는 추가 측정값이 없을 수 있습니다.
 
 ## 데이터 출처
 
@@ -48,7 +52,7 @@ GitHub Actions에서 성공한 **Test and package the addon** 실행을 열고 *
 
 - **코드 변경 검증** · PR과 `main` 푸시에서 Lua 테스트를 실행하고 커밋에 포함된 데이터로 설치 ZIP을 만듭니다.
 - **데이터 갱신** · Actions가 활성화된 저장소의 기본 브랜치에서 매주 월요일 06:17(한국 시간)에 WoWSims 데이터를 다시 받아 계산합니다. 수동 실행 시 커밋을 지정할 수 있습니다. 새 던전이나 페이즈는 획득처와 제작 재료를 확인한 뒤 `dev/catalog.ts`에 추가합니다.
-- **갱신 결과 보관** · 주간 실행 기록의 `BiSFit-tested-build` 아티팩트에서 `BiSFit-<버전>.zip`을 꺼냅니다. 그 안의 `BiSFit/Data.lua`와 `BiSFit/PlannerData.lua`를 함께 저장소 루트에 반영하고 PR로 커밋하면 다음 설치 ZIP에도 같은 데이터가 포함됩니다.
+- **갱신 결과 보관** · 주간 실행 기록의 `BiSFit-tested-build` 아티팩트에서 `BiSFit-<버전>.zip`을 꺼냅니다. 그 안의 `Data.lua`, `PlannerData.lua`, `HitCaps.lua`, `ConfirmedDPS.lua` 네 파일을 함께 저장소 루트에 반영하고 PR로 커밋하면 다음 설치 ZIP에도 같은 데이터가 포함됩니다.
 - **공개 배포** · 게임에서 쓸 때와 CurseForge에서 배포할 때 모두 설치 ZIP을 씁니다. 개발 중에는 ZIP을 직접 풀어 포에버 클라이언트에서 확인할 수 있습니다. 현재 워크플로는 설치 ZIP을 생성하며 CurseForge 게시는 별도로 진행합니다.
 
 [WoWSims Forever](https://github.com/wowsims/forever) · [CurseForge 제출 안내](https://support.curseforge.com/support/solutions/articles/9000197241-creating-and-submitting-a-project)
@@ -72,6 +76,8 @@ addon_dir="$(pwd)"
 )
 node dev/refresh.ts ../wowsims-forever ./measure
 python3 dev/planner_data.py ../wowsims-forever/assets/database/db.json ./measure
+node dev/hit_caps.ts ../wowsims-forever/assets/database/db.json
+python3 dev/confirm_dps.py ../wowsims-forever ./measure
 lua5.1 dev/test.lua
 python3 dev/package.py
 ```

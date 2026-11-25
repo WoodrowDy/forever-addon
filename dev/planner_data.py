@@ -114,6 +114,39 @@ for role,base in zip(roles,bases):
         states=next_states
     candidates=shortlist(states)
     metrics=measure(Path(sys.argv[1]).resolve().parents[2], Path(sys.argv[2]).resolve(),role,candidates,dps_iterations)
+    if role in ("balance", "cat"):
+        extra = set()
+        targets = (130, 170) if role == "balance" else (40, 80)
+        for target in targets:
+            for leather in (True, False):
+                eligible = [g for g in candidates if sum(map(hit, g)) >= target
+                            and (not leather or all(db[g[i]].get("armorType") == 2 for i in armor))]
+                if not eligible:
+                    continue
+                leader = max(eligible, key=lambda g: metrics[g]["dps"])
+                for slot in sorted(armor):
+                    pool = by_type[slot + 1]
+                    alternatives = set(sorted(pool, key=lambda i: ep(role, i), reverse=True)[:4])
+                    alternatives.update(sorted(pool, key=lambda i: (hit(i), ep(role, i)), reverse=True)[:2])
+                    if base[slot] in pool:
+                        alternatives.add(base[slot])
+                    # A same-set group also exercises bonuses that individual swaps cannot activate.
+                    for item in sorted(alternatives):
+                        gear = list(leader)
+                        gear[slot] = item
+                        extra.add(tuple(gear))
+                        set_id = catalog[item]["set"]
+                        if set_id:
+                            for other in sorted(armor - {slot}):
+                                matches = [i for i in by_type[other + 1] if catalog[i]["set"] == set_id]
+                                if matches:
+                                    gear[other] = max(matches, key=lambda i: ep(role, i))
+                            extra.add(tuple(gear))
+        fresh = sorted(extra - set(candidates))
+        if fresh:
+            metrics.update(measure(Path(sys.argv[1]).resolve().parents[2], Path(sys.argv[2]).resolve(),
+                                   role, fresh, dps_iterations))
+            candidates = sorted(metrics)
     print(role,len(metrics),flush=True)
     # Ship only benchmarked finalists.
     rows=['{gear='+lua(g)+',perf='+str(round(sum(ep(role,i) for i in g),4))+',bench='+lua(metrics[g])+'}' for g in sorted(candidates,key=lambda g:(-sum(ep(role,i) for i in g),g))]

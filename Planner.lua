@@ -76,6 +76,51 @@ function ns.plan(class,role,p,picker,preview)
     end
     return left,right
 end
+-- A farming step changes exactly one equipped armor piece; all other slots stay fixed.
+function ns.oneArmorUpgrade(class,role,p,base)
+    if not base or base.other~=0 or base.short>0 then return end
+    local best,slotIndex
+    for _,row in ipairs(ns.planRows(role)) do
+        if roleScore(role,row)>base.score and (not best or roleScore(role,row)>best.score)
+            and not (p.noRep and row.rep or p.noTier and row.tier) then
+            local changed
+            for i,id in ipairs(row.gear) do
+                if id~=base.row.gear[i] then
+                    if changed then changed=nil;break end
+                    changed=i
+                end
+            end
+            if changed and changed~=p.pinSlot and matches(row.gear,p.pin) then
+                for _,slot in ipairs(armorSlots) do
+                    if changed==slot then
+                        local id=row.gear[slot]
+                        local hit=base.hit*10-(ns.itemHit[base.row.gear[slot]] or 0)+(ns.itemHit[id] or 0)
+                        if ns.data.items[id][3]~=class.armor and hit+0.00001>=10*(p.target or 0) then
+                            best={score=roleScore(role,row),item=id};slotIndex=slot
+                        end
+                        break
+                    end
+                end
+            end
+        end
+    end
+    return best,slotIndex
+end
+function ns.maxGearHit(role,p,strict)
+    local shaman=role=="enhancement" or role=="elemental"
+    local key=table.concat({role,strict and 1 or 0,shaman and p.noRep and 1 or 0,shaman and p.noTier and 1 or 0},"/")
+    local caps=ns.hitCaps and ns.hitCaps[key]
+    if not caps then return end
+    if not p.pin then return caps.max/10 end
+    local best
+    for slot=1,17 do
+        if not p.pinSlot or slot==p.pinSlot then
+            local hit=caps[slot][p.pin]
+            if hit and (not best or hit>best) then best=hit end
+        end
+    end
+    if best then return best/10 end
+end
 function ns.planStatus(result,strict)
     if not result then return "조건에 맞는 후보 없음" end
     if result.short>0 then

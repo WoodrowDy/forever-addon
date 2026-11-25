@@ -30,8 +30,8 @@ for (const spec of specs) {
       (spec === "restoration" ? "elemental" : spec) +
       "/builds/default.build.json",
   );
-  profile.encounter.duration = 180;
-  profile.encounter.durationVariation = 0;
+  profile.encounter.duration = spec === "restoration" ? 180 : 300;
+  profile.encounter.durationVariation = spec === "restoration" ? 0 : 60;
   const p = profile.player;
   p.race = "RaceTauren";
   p.equipment = {};
@@ -65,6 +65,19 @@ for (const spec of specs) {
       randomSeed: "251122",
     },
   };
+}
+// Reuse the exact search profile for independent confirmation of close finalists.
+if (process.argv[5] === "--confirm") {
+  const results = [];
+  for (const entry of JSON.parse(fs.readFileSync(0, "utf8"))) {
+    const req = structuredClone(profiles[entry.role]);
+    req.raid.parties[0].players[0].equipment = {items: entry.gear.map((id: number) => id ? {id} : {})};
+    req.simOptions = {...req.simOptions, iterations: entry.iterations, randomSeed: String(entry.seed)};
+    const result = JSON.parse(execFileSync(path.resolve(helper), [], {input: JSON.stringify(req) + "\n", encoding: "utf8"}));
+    results.push({dps: result.mean, se: result.sd / Math.sqrt(result.iterations)});
+  }
+  console.log(JSON.stringify(results));
+  process.exit(0);
 }
 const records: { spec: Spec; gear: number[] }[] = specs.flatMap((spec) =>
   search(items, spec).map((gear) => ({ spec, gear })),
@@ -253,6 +266,57 @@ try {
   console.log("Rechecking", followups.length, "recombined sets.");
   await evaluate(followups);
   records.push(...followups);
+  // Explore armor changes around measured hit-capped leaders even when EP ranks a piece poorly.
+  const known = new Set(records.filter(row => row.spec === "enhancement").map(row => row.gear.join()));
+  // Verified pieces from the supplied WoWF profile. Fill unverified or out-of-phase slots
+  // from a legal measured set; never label the resulting hybrid as the full WoWF set.
+  const reference: Record<number, number> = {
+    0: 20134, 1: 22150, 2: 14503, 4: 11726, 5: 13211, 6: 14615, 7: 14614,
+    8: 14612, 9: 14616, 12: 272437, 13: 11815, 14: 280056, 15: 0, 16: 272432,
+  };
+  const references: typeof records = [];
+  if (Object.values(reference).every(id => id === 0 || byId.has(id))) {
+    for (const row of bundle.sets.enhancement) {
+      const gear = Object.assign(row.gear.slice(), reference);
+      if (known.has(gear.join())) continue;
+      validateGear(gear, byId);
+      known.add(gear.join());
+      references.push({spec: "enhancement", gear});
+    }
+  }
+  await evaluate(references);
+  records.push(...references);
+  for (const spec of ["enhancement", "elemental"] as const) {
+    const known = new Set(records.filter(row => row.spec === spec).map(row => row.gear.join()));
+    const tierStart = spec === "enhancement" ? 227017 : 227001;
+    for (const target of spec === "enhancement" ? [80] : [120, 170]) {
+      for (let pass = 0; pass < 2; pass++) {
+        const additions: typeof records = [];
+        const capped = bundle.sets[spec].filter((row: any) =>
+          row.gear.reduce((hit: number, id: number) => hit + (byId.get(id)?.rating[17] ?? 0), 0) >= target
+        ).sort((a: any, b: any) => b.perf - a.perf);
+        for (const mail of [true, false]) {
+          const leader = capped.find((row: any) => row.mail === mail);
+          if (!leader) continue;
+          for (const slot of armorSlots) {
+            for (const item of items) {
+              if (item.type !== slot + 1 || (item.set === 1679 && (item.id < tierStart || item.id >= tierStart + 8))) continue;
+              const gear = leader.gear.slice();
+              gear[slot] = item.id;
+              const key = gear.join();
+              if (known.has(key)) continue;
+              if (gear.some((id: number, index: number) => index !== slot &&
+                  ((item.unique && id === item.id) || (item.category && byId.get(id)?.category === item.category)))) continue;
+              known.add(key);
+              additions.push({spec, gear});
+            }
+          }
+        }
+        await evaluate(additions);
+        records.push(...additions);
+      }
+    }
+  }
   for (const spec of specs) {
     bundle.sets[spec].sort(
       (a: any, b: any) =>
