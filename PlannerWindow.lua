@@ -120,7 +120,7 @@ local function submit(useBonus)
 end
 local function build()
     frame=CreateFrame("Frame","BiSFitPlanner",UIParent)
-    frame:SetSize(900,662);frame:SetPoint("CENTER");frame:SetFrameStrata("DIALOG")
+    frame:SetSize(900,680);frame:SetPoint("CENTER");frame:SetFrameStrata("DIALOG")
     frame:EnableMouse(true);frame:SetMovable(true);frame:RegisterForDrag("LeftButton")
     frame:SetScript("OnDragStart",frame.StartMoving);frame:SetScript("OnDragStop",frame.StopMovingOrSizing)
     local bg=frame:CreateTexture(nil,"BACKGROUND");bg:SetAllPoints();bg:SetColorTexture(.045,.055,.075,.98)
@@ -158,8 +158,9 @@ local function build()
         redraw()
     end)
     frame.status={text(frame,86,160),text(frame,491,160)}
+    frame.materialNote=text(frame,86,178)
     for slot=1,17 do
-        rows[slot]={};local y=185+(slot-1)*25
+        rows[slot]={};local y=203+(slot-1)*25
         text(frame,14,y+5,slot==17 and "성물" or ns.slotNames[slot])
         for side=1,2 do
             local b=button(frame,82+(side-1)*404,y,397,"",function(self,key)
@@ -187,8 +188,8 @@ local function build()
             rows[slot][side]=b
         end
     end
-    frame.footer=text(frame,16,624)
-    frame.stats=text(frame,16,643)
+    frame.footer=text(frame,16,642)
+    frame.stats=text(frame,16,661)
 end
 redraw=function()
     local c=ns.classes[classIndex]
@@ -219,6 +220,10 @@ redraw=function()
         frame.restore:Hide()
     end
     local left,right=ns.plan(c,role,query,nil,preview)
+    local pureMax=limit and ns.maxGearHit(role,query,true)
+    local shortage=pureMax and (query.target or 0)-pureMax
+    frame.materialNote:SetText(left and shortage and shortage>0 and
+        string.format("%s만으론 %.1f%%p 부족 · 안돼 돌아가~",c.material,shortage) or "")
     local changed = {}
     local unit=role=="bear" and "TMI ↓" or (role=="restoration" or role=="druidHeal") and "지속 HPS" or "DPS"
     frame.notice:SetText(c.name.." · "..ns.roles[role][1]..(limit and (" · "..(settings.target and "저장한 장비 목표" or rankSource).." "..(settings.target or defaultTarget).."%") or "").."   "..(settings.pin and "고정 · "..ns.itemName(settings.pin) or "좌클릭 교체 · 우클릭 고정/해제"))
@@ -226,11 +231,11 @@ redraw=function()
         local r=left
         if side==2 then r=right end
         frame.head[side]:SetText((side==1 and mode or "혼합 허용")..(r and string.format("   %.1f %s",r.score,unit) or ""))
-        frame.status[side]:SetText(limit and (ns.planStatus(r,side==1 and not settings.prefer)..(r and string.format(" · 장비 %.1f%%",r.hit) or "")) or (r and "치유 기준" or "조건에 맞는 후보 없음"))
+        frame.status[side]:SetText(limit and (ns.planStatus(r,side==1 and c or nil)..(r and string.format(" · 장비 %.1f%%",r.hit) or "")) or (r and "치유 기준" or "조건에 맞는 후보 없음"))
         if r and r.healing then
             frame.status[side]:SetText(string.format("고정 MP5 %.1f · 종료 마나 %.0f",r.healing.mp5,r.healing.ending))
         elseif r and r.dtps then
-            frame.status[side]:SetText(string.format("%s · 받는 DPS %.1f",ns.planStatus(r,side==1 and not settings.prefer),r.dtps))
+            frame.status[side]:SetText(string.format("%s · 받는 DPS %.1f",ns.planStatus(r,side==1 and c or nil),r.dtps))
         end
         for slot,line in ipairs(rows) do
             local b=line[side];local id=r and r.row.gear[slot];b.item=id

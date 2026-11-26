@@ -94,7 +94,7 @@ for _,class in ipairs(ns.classes) do
         assert(strict and strict.other==0 and mixed)
         local left,right=ns.plan(class,role,{target=100,prefer=true})
         assert(left and right);if ns.roles[role][2] then assert(left.hit==right.hit) end
-        if ns.roles[role][2] then assert(ns.planStatus(left,true):find("없어 돌아가")) end
+        if ns.roles[role][2] then assert(ns.planStatus(left):find("목표 미달성")) end
         local pinned=select(2,ns.plan(class,role,{target=3,pin=mixed.row.gear[1]}))
         assert(pinned and pinned.row.gear[1]==mixed.row.gear[1])
     end

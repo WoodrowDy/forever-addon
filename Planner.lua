@@ -121,13 +121,24 @@ function ns.maxGearHit(role,p,strict)
     end
     if best then return best/10 end
 end
-function ns.planStatus(result,strict)
-    if not result then return "조건에 맞는 후보 없음" end
-    if result.short>0 then
-        return (strict and "목표 미달 (없어 돌아가)" or "목표 미달")..string.format(" · %.1f%%p 부족",result.short)
+function ns.materialSummary(class,result)
+    if result.other==0 then return "" end
+    if result.other==1 then
+        for _,slot in ipairs(armorSlots) do
+            local armor=ns.data.items[result.row.gear[slot]][3]
+            if armor~=class.armor then
+                return (armor==1 and "천" or "가죽").." "..ns.slotNames[slot].." 1부위"
+            end
+        end
     end
-    if result.other>0 then return result.other.."부위 혼합 · 목표 달성" end
-    return "목표 달성"
+    return "다른 재질 "..result.other.."부위"
+end
+
+function ns.planStatus(result,class)
+    if not result then return "조건에 맞는 후보 없음" end
+    local status=result.short>0 and string.format("목표 미달성 · %.1f%%p 부족",result.short) or "목표 달성"
+    if class and result.other>0 then status=status.." · "..ns.materialSummary(class,result) end
+    return status
 end
 
 function ns.currentTalentRank(class)
