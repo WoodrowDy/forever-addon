@@ -31,6 +31,14 @@ local function openPicker(slot,side)
         if x==y then return a<b end
         return x>y
     end)
+    local ranks={}
+    local previousEP,rank
+    for index,id in ipairs(ids) do
+        local ep=ns.itemEP[role][id]
+        if ep~=previousEP then rank=index end
+        ranks[id]=rank
+        previousEP=ep
+    end
     if not picker then
         picker=CreateFrame("Frame",nil,frame)
         picker:SetSize(410,342);picker:SetPoint("CENTER");picker:EnableMouse(true)
@@ -54,17 +62,18 @@ local function openPicker(slot,side)
         function picker:render()
             local pages=math.max(1,math.ceil(#self.ids/10))
             self.page=math.max(1,math.min(self.page,pages))
-            self.title:SetText(ns.slotNames[self.slot].." 교체 후보 · "..#self.ids.."개 · "..self.page.."/"..pages)
+            self.title:SetText((self.slot==17 and "성물" or ns.slotNames[self.slot]).." · 부위 EP 순위 · "..#self.ids.."개 · "..self.page.."/"..pages)
             for i,b in ipairs(self.entries) do
                 b.id=self.ids[(self.page-1)*10+i]
                 if b.id then
-                    b:SetText(ns.itemName(b.id).."  ·  "..ns.data.items[b.id][2]);b:Show()
+                    b:SetText(string.format("%d위  |  %.2f EP  |  %s",self.ranks[b.id],ns.itemEP[role][b.id],ns.slotItemName(self.slot,b.id)));b:Show()
                 else b:Hide() end
             end
         end
         button(picker,12,310,75,"이전",function() picker.page=picker.page-1;picker:render() end)
         button(picker,323,310,75,"다음",function() picker.page=picker.page+1;picker:render() end)
     end
+    picker.ranks=ranks
     picker.slot,picker.side,picker.ids,picker.page=slot,side,ids,1
     picker:render();picker:Show()
 end
@@ -243,7 +252,7 @@ redraw=function()
     if picker then picker:Hide() end
     if preview then
         frame.restore:ClearAllPoints()
-        frame.restore:SetPoint("TOPRIGHT",frame,"TOPLEFT",preview.side==1 and 370 or 666,-134)
+        frame.restore:SetPoint("TOPRIGHT",frame,"TOPLEFT",945,-8)
         frame.restore:Show()
     else
         frame.restore:Hide()
@@ -255,14 +264,15 @@ redraw=function()
         string.format("%s만으론 %.1f%%p 부족 · 안돼 돌아가~",c.material,shortage) or "")
     local changed = {}
     local unit=role=="bear" and "TMI ↓" or (role=="restoration" or role=="druidHeal") and "지속 HPS" or "DPS"
-    frame.notice:SetText(c.name.." · "..ns.roles[role][1]..(limit and (" · "..(settings.target and "저장한 장비 목표" or rankSource).." "..(settings.target or defaultTarget).."%") or "").."   "..(settings.pin and "고정 · "..ns.itemName(settings.pin) or "좌클릭 교체 · 우클릭 고정/해제"))
+    frame.notice:SetText(c.name.." · "..ns.roles[role][1]..(limit and (" · "..(settings.target and "저장한 장비 목표" or rankSource).." "..(settings.target or defaultTarget).."%") or "").."   "..(settings.pin and "양쪽 고정 · "..(settings.pinSlot and ((settings.pinSlot==17 and "성물" or ns.slotNames[settings.pinSlot]).." — ") or "")..ns.itemName(settings.pin) or "좌클릭 교체 · 우클릭 고정/해제"))
     for side=1,2 do
         local r=left
         if side==2 then r=right end
-        frame.head[side]:SetText((side==1 and mode or "혼합 허용")..(r and string.format("   %.1f %s",r.score,unit) or ""))
+        local rankLabel=preview and preview.side==side and "미리보기" or "측정 세트 1위"
+        frame.head[side]:SetText((side==1 and mode or "혼합 허용")..(r and string.format(" · %s · %.1f %s",rankLabel,r.score,unit) or ""))
         frame.status[side]:SetText(limit and (ns.planStatus(r,side==1 and c or nil)..(r and string.format(" · 장비 %.1f%%",r.hit) or "")) or (r and "치유 기준" or "조건에 맞는 후보 없음"))
         if r and r.healing then
-            frame.status[side]:SetText(string.format("고정 MP5 %.1f · 종료 마나 %.0f",r.healing.mp5,r.healing.ending))
+            frame.status[side]:SetText(string.format("5초당 마나 회복 %.1f · 종료 마나 %.0f",r.healing.mp5,r.healing.ending))
         elseif r and r.dtps then
             frame.status[side]:SetText(string.format("%s · 받는 DPS %.1f",ns.planStatus(r,side==1 and c or nil),r.dtps))
         end
@@ -276,7 +286,7 @@ redraw=function()
             b.unmeasured=opposite and id and b.delta==nil
             b.unit=unit
             if id and id>0 then
-                b.title:SetText((differs and "↔ " or "")..(id==settings.pin and "◆ " or "")..ns.itemName(id))
+                b.title:SetText((differs and "↔ " or "")..(id==settings.pin and "◆ " or "")..ns.slotItemName(slot,id))
                 local info=ns.data.items[id]
                 local color=ITEM_QUALITY_COLORS and ITEM_QUALITY_COLORS[info[4]]
                 b.title:SetTextColor(color and color.r or 1,color and color.g or 1,color and color.b or 1)

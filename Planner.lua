@@ -1,5 +1,15 @@
 local _, ns = ...
 local armorSlots = {1,3,5,6,7,8,9,10}
+local armorNames={"천","가죽","사슬","판금"}
+function ns.slotItemName(slot,id)
+    for _,armorSlot in ipairs(armorSlots) do
+        if slot==armorSlot then
+            local material=armorNames[ns.data.items[id][3]]
+            if material then return "["..material.."] "..ns.itemName(id) end
+        end
+    end
+    return ns.itemName(id)
+end
 local function matches(gear, pin)
     if not pin then return true end
     for _,id in ipairs(gear) do if id==pin then return true end end
