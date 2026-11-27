@@ -2,6 +2,8 @@ local _,ns=...
 local frame,role,classIndex,settings,redraw
 local selectors,rows={},{}
 local db,defaultTarget,rankSource
+local width,height=1110,810
+local statFields={{0,"힘"},{1,"민첩"},{2,"체력"},{3,"지능"},{4,"치유력"},{5,"주문 피해"},{17,"적중 평점"}}
 local function text(parent,x,y,s)
     local f=parent:CreateFontString(nil,"OVERLAY","GameFontHighlightSmall")
     f:SetPoint("TOPLEFT",parent,"TOPLEFT",x,-y);f:SetText(s or "")
@@ -120,16 +122,16 @@ local function submit(useBonus)
 end
 local function build()
     frame=CreateFrame("Frame","BiSFitPlanner",UIParent)
-    frame:SetSize(900,680);frame:SetPoint("CENTER");frame:SetFrameStrata("DIALOG")
+    frame:SetSize(width,height);frame:SetPoint("CENTER");frame:SetFrameStrata("DIALOG")
     frame:EnableMouse(true);frame:SetMovable(true);frame:RegisterForDrag("LeftButton")
     frame:SetScript("OnDragStart",frame.StartMoving);frame:SetScript("OnDragStop",frame.StopMovingOrSizing)
     local bg=frame:CreateTexture(nil,"BACKGROUND");bg:SetAllPoints();bg:SetColorTexture(.045,.055,.075,.98)
     table.insert(UISpecialFrames,"BiSFitPlanner")
     text(frame,16,16,"BiSFit")
     for i,c in ipairs(ns.classes) do button(frame,148+(i-1)*104,8,100,c.name,function() selectClass(i) end) end
-    local details=button(frame,750,8,94,"계산 기준 ⓘ",function() end)
+    local details=button(frame,958,8,94,"계산 기준 ⓘ",function() end)
     tip(details,function() return frame.criteria end)
-    button(frame,850,8,38,"×",function() frame:Hide() end)
+    button(frame,1060,8,38,"×",function() frame:Hide() end)
     for i=1,4 do selectors[i]=button(frame,16+(i-1)*109,42,105,"",function(self) selectRole(self.key) end) end
     frame.mode=button(frame,475,42,128,"",function() preview=nil;settings.prefer=not settings.prefer;redraw() end)
     tip(frame.mode,function() local c=ns.classes[classIndex]
@@ -152,18 +154,21 @@ local function build()
     frame.target:SetScript("OnEnterPressed",function() submit(false) end)
     frame.bonus:SetScript("OnEnterPressed",function() submit(true) end)
     frame.notice=text(frame,16,114)
-    frame.head={text(frame,86,142),text(frame,491,142)}
+    frame.head={text(frame,86,142),text(frame,382,142)}
     frame.restore=button(frame,0,0,142,"미리보기 · 추천으로 복귀",function()
         preview=nil
         redraw()
     end)
-    frame.status={text(frame,86,160),text(frame,491,160)}
     frame.materialNote=text(frame,86,178)
+    frame.status={text(frame,86,160),text(frame,382,160)}
     for slot=1,17 do
-        rows[slot]={};local y=203+(slot-1)*25
-        text(frame,14,y+5,slot==17 and "성물" or ns.slotNames[slot])
+        rows[slot]={};local y=202+(slot-1)*34
+        text(frame,14,y+9,slot==17 and "성물" or ns.slotNames[slot])
         for side=1,2 do
-            local b=button(frame,82+(side-1)*404,y,397,"",function(self,key)
+            local b=CreateFrame("Button",nil,frame)
+            b:SetSize(288,33)
+            b:SetPoint("TOPLEFT",frame,"TOPLEFT",82+(side-1)*296,-y)
+            b:SetScript("OnClick",function(self,key)
                 if key~="RightButton" then openPicker(slot,side);return end
                 if not self.item or self.item==0 then return end
                 preview=nil
@@ -173,7 +178,18 @@ local function build()
                 redraw()
             end)
             b:RegisterForClicks("LeftButtonUp","RightButtonUp")
-            b.icon=b:CreateTexture(nil,"ARTWORK");b.icon:SetSize(19,19);b.icon:SetPoint("LEFT",4,0)
+            local bg=b:CreateTexture(nil,"BACKGROUND")
+            bg:SetAllPoints()
+            local shade=slot%2==0 and .085 or .065
+            bg:SetColorTexture(shade,shade+.012,shade+.025,1)
+            b:SetHighlightTexture("Interface\\QuestFrame\\UI-QuestTitleHighlight","ADD")
+            b.icon=b:CreateTexture(nil,"ARTWORK");b.icon:SetSize(29,29);b.icon:SetPoint("LEFT",3,0)
+            b.title=text(b,38,2)
+            b.source=text(b,38,17)
+            for _,line in ipairs({b.title,b.source}) do
+                line:SetWidth(245);line:SetJustifyH("LEFT");line:SetWordWrap(false)
+            end
+            b.source:SetTextColor(.69,.73,.78)
             b:SetScript("OnEnter",function(self)
                 if not self.item or self.item==0 then return end
                 GameTooltip:SetOwner(self,"ANCHOR_RIGHT");GameTooltip:SetHyperlink("item:"..self.item)
@@ -188,8 +204,21 @@ local function build()
             rows[slot][side]=b
         end
     end
-    frame.footer=text(frame,16,642)
-    frame.stats=text(frame,16,661)
+    frame.footer=text(frame,16,784)
+    frame.summary=text(frame,685,142)
+    frame.summary:SetWidth(405);frame.summary:SetJustifyH("LEFT")
+    text(frame,685,198,"장비 기본 능력치")
+    frame.statHeaders={text(frame,836,198),text(frame,929,198,"혼합"),text(frame,1026,198,"차이")}
+    frame.statRows={}
+    for index,field in ipairs(statFields) do
+        local y=224+(index-1)*22
+        text(frame,685,y,field[2])
+        frame.statRows[index]={text(frame,836,y),text(frame,929,y),text(frame,1026,y)}
+    end
+    text(frame,685,401,"계산 기준")
+    frame.conditions=text(frame,685,425)
+    frame.conditions:SetWidth(402);frame.conditions:SetJustifyH("LEFT")
+    frame.conditions:SetSpacing(2)
 end
 redraw=function()
     local c=ns.classes[classIndex]
@@ -214,7 +243,7 @@ redraw=function()
     if picker then picker:Hide() end
     if preview then
         frame.restore:ClearAllPoints()
-        frame.restore:SetPoint("TOPRIGHT",frame,"TOPLEFT",preview.side==1 and 479 or 883,-134)
+        frame.restore:SetPoint("TOPRIGHT",frame,"TOPLEFT",preview.side==1 and 370 or 666,-134)
         frame.restore:Show()
     else
         frame.restore:Hide()
@@ -247,9 +276,15 @@ redraw=function()
             b.unmeasured=opposite and id and b.delta==nil
             b.unit=unit
             if id and id>0 then
-                b:SetText((differs and "↔ " or "")..(id==settings.pin and "◆ " or "")..ns.itemName(id))
-                b.icon:SetTexture(C_Item.GetItemIconByID(id) or 134400);b.icon:Show()
-            else b:SetText("—");b.icon:Hide() end
+                b.title:SetText((differs and "↔ " or "")..(id==settings.pin and "◆ " or "")..ns.itemName(id))
+                local info=ns.data.items[id]
+                local color=ITEM_QUALITY_COLORS and ITEM_QUALITY_COLORS[info[4]]
+                b.title:SetTextColor(color and color.r or 1,color and color.g or 1,color and color.b or 1)
+                b.source:SetText(info[2] or "")
+                local icon=C_Item.GetItemIconByID(id)
+                if not icon and info[5] and info[5]~="" then icon="Interface\\Icons\\"..info[5] end
+                b.icon:SetTexture(icon or 134400);b.icon:Show()
+            else b.title:SetText("—");b.source:SetText("");b.icon:Hide() end
         end
     end
     local delta=""
@@ -278,19 +313,21 @@ redraw=function()
             end
         end
     end
-    local parts={}
-    if left and right then
-        for _,v in ipairs({{0,"힘"},{1,"민첩"},{2,"체력"},{3,"지능"},{4,"치유력"},{5,"주문 피해"},{17,"적중 평점"}}) do
-            local n=0
-            for slot,id in ipairs(left.row.gear) do
-                local a=ns.gearStats[id] or {}
-                local b=ns.gearStats[right.row.gear[slot]] or {}
-                n=n+(a[v[1]] or 0)-(b[v[1]] or 0)
+    frame.statHeaders[1]:SetText(mode)
+    for index,field in ipairs(statFields) do
+        local totals={}
+        for side,result in ipairs({left or false,right or false}) do
+            if result then
+                local sum=0
+                for _,id in ipairs(result.row.gear) do
+                    sum=sum+((ns.gearStats[id] or {})[field[1]] or 0)
+                end
+                totals[side]=sum
             end
-            if n~=0 then parts[#parts+1]=string.format("%s %+.0f",v[2],n) end
+            frame.statRows[index][side]:SetText(result and string.format("%.0f",totals[side]) or "—")
         end
+        frame.statRows[index][3]:SetText(left and right and string.format("%+.0f",totals[1]-totals[2]) or "—")
     end
-    frame.stats:SetText(left and right and ("장비 기본 능력치 차이 · "..(#parts>0 and table.concat(parts,"  ") or "표시 항목 동일")) or "")
     local criteria
     if classIndex==1 then
         criteria=role=="restoration" and "하급 치유의 물결 6단계 · 180초 고정 MP5 모델" or
@@ -338,7 +375,9 @@ redraw=function()
     end
     if #changed>0 then criteria=criteria.."\n교체 부위 · "..table.concat(changed,", ") end
     frame.criteria=criteria..confirmation.."\n등록 후보 내 비교 · 데이터 "..ns.data.date
-    frame.footer:SetText("등록 후보 "..#ns.planRows(role).."조합"..delta)
+    frame.conditions:SetText(frame.criteria)
+    frame.summary:SetText((delta:gsub("^ · ","")))
+    frame.footer:SetText("등록 후보 "..#ns.planRows(role).."조합 · 좌클릭 교체 · 우클릭 고정/해제")
 end
 SLASH_BISFITPLAN1="/bis"
 SLASH_BISFITPLAN2="/bisfit"
@@ -353,7 +392,7 @@ SlashCmdList.BISFITPLAN=function()
     end
     db.lastRole=db.lastRole or {}
     if not frame then build() end
-    frame:SetScale(math.min(1,UIParent:GetWidth()*.98/900,UIParent:GetHeight()*.96/662))
+    frame:SetScale(math.min(1,UIParent:GetWidth()*.98/width,UIParent:GetHeight()*.96/height))
     frame:Show()
     selectClass(classIndex or (UnitClass and select(2,UnitClass("player"))=="DRUID" and 2 or 1))
 end
